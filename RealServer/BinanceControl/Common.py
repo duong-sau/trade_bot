@@ -1,10 +1,10 @@
 from binance.exceptions import BinanceRequestException, BinanceAPIException
-from Logic.logger import log_error
-import Server
+from logger import log_error
+import RealServer
 
 def open_limit(symbol, side, amount, price):
     try:
-        order = Server.client.createOrder(symbol=symbol,
+        order = RealServer.client.createOrder(symbol=symbol,
                                    type="limit",
                                    side=side,
                                    amount=amount,
@@ -16,7 +16,7 @@ def open_limit(symbol, side, amount, price):
 
 def open_take_profit(symbol, quantity, price, side):
     try:
-        order = Server.client.createOrder(symbol=symbol, type="TAKE_PROFIT", side=side, amount=quantity, price=price, params={"takeProfitPrice": price, "reduceOnly": True})
+        order = RealServer.client.createOrder(symbol=symbol, type="TAKE_PROFIT", side=side, amount=quantity, price=price, params={"takeProfitPrice": price, "reduceOnly": True})
         return order['id']
     except (BinanceRequestException, BinanceAPIException):
         log_error()
@@ -24,7 +24,7 @@ def open_take_profit(symbol, quantity, price, side):
 
 def open_stop_loss(symbol, quantity, price, side):
     try:
-        order = Server.client.createOrder(symbol=symbol, type="STOP", side=side, amount=quantity, price=price, params={"stopLossPrice": price, "reduceOnly": True})
+        order = RealServer.client.createOrder(symbol=symbol, type="STOP", side=side, amount=quantity, price=price, params={"stopLossPrice": price, "reduceOnly": True})
         return order['id']
     except BinanceAPIException as e:
         error_code = e.code
@@ -37,7 +37,7 @@ def open_stop_loss(symbol, quantity, price, side):
 
 def force_stop_loss(symbol, quantity, side):
     try:
-        order = Server.client.createOrder(symbol=symbol,
+        order = RealServer.client.createOrder(symbol=symbol,
                                    type="STOP_MARKET",
                                    side=side,
                                    amount=quantity,
@@ -51,7 +51,7 @@ def force_stop_loss(symbol, quantity, side):
 
 def cancel_order(symbol, order_id):
     try:
-        Server.client.cancel_order(symbol=symbol, id=order_id)
+        RealServer.client.cancel_order(symbol=symbol, id=order_id)
     except:
         log_error()
 

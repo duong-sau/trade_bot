@@ -1,3 +1,4 @@
+from RealServer.Binance import BinanceServer
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
@@ -25,7 +26,8 @@ class DCAServer:
     tp2_ratio = 0.1 / 100
 
     def __init__(self):
-        self.binance_server = BinanceTestServer()
+        # self.binance_server = BinanceTestServer()
+        self.binance_server = BinanceServer()
         self.DACS = []
         self.khop_lenh = False
         self.position = POSITION_SIDE.NONE
@@ -143,11 +145,11 @@ class DCAServer:
 
 
     def GetDACNum(self):
-        return len(self.DACS) + self.binance_server.order_list.__len__()
+        return len(self.DACS) + self.binance_server.sub_server.order_list.__len__()
 
     def get_trades(self):
         trades = []
-        pos = self.binance_server.position
+        pos = self.binance_server.sub_server.position
         trade = {
             "entry": pos.entry,
             "tp": pos.tp,
@@ -159,7 +161,7 @@ class DCAServer:
 
     def get_dcas(self):
         dcas = []
-        for order in self.binance_server.order_list:
+        for order in self.binance_server.sub_server.order_list:
             if order.type == ORDER_TYPE.LIMIT:
                 dca_info = {
                     "price": order.trigger_price,

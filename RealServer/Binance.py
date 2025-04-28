@@ -5,6 +5,7 @@ from RealServer import web_socket, client
 from RealServer.BinanceControl.Common import open_limit, open_take_profit, cancel_order
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
+from Server.Binance.Types.Position import POSITION_SIDE
 from logger import print_log_error, log_error
 
 
@@ -75,11 +76,11 @@ class BinanceServer:
         """Opens a new order."""
         self.sub_server.open_order(order_type, side, amount, entry, reduce_only)
         if order_type == ORDER_TYPE.LIMIT:
-            order_id =  open_limit(self.symbol, side, amount, entry)
+            order_id =  open_limit(self.symbol, "BUY" if side == POSITION_SIDE.LONG else "SELL", amount, entry)
         elif order_type == ORDER_TYPE.TP:
-            order_id =   open_take_profit(self.symbol, side, amount, entry)
+            order_id =   open_take_profit(self.symbol, "SELL" if side == POSITION_SIDE.LONG else "BUY", amount, entry)
         elif order_type == ORDER_TYPE.SL:
-            order_id =   open_take_profit(self.symbol, side, amount, entry)
+            order_id =   open_take_profit(self.symbol, "SELL" if side == POSITION_SIDE.LONG else "BUY", amount, entry)
         else:
             assert False, "Invalid order type."
 
@@ -100,14 +101,19 @@ class BinanceServer:
         """Fetches the last klines from Binance."""
         try:
             symbol = "BTC/USDT"  # Default trading pair
-            timeframe = "1m"  # Default timeframe
+            timeframe = "5m"  # Default timeframe
             limit = param if param else 20  # Use param or default to 20
 
             klines = client.fetch_ohlcv(symbol, timeframe, limit=limit)
-            return klines
+            close_prices = [kline[4] for kline in klines]
+            return close_prices
+
         except:
             log_error()
             return []
 
     def tick(self):
         return
+
+    def get_total(self):
+        return 1000000000

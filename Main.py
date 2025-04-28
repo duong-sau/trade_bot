@@ -1,3 +1,9 @@
+import asyncio
+from datetime import datetime
+
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+import sys
 import threading
 import time
 import traceback
@@ -8,14 +14,13 @@ from Tool import compute_bb_2, calculate_points, compute_rsi
 from Visualize import Visualizer
 
 if __name__ == '__main__':
-    global isInTrading
 
     visualizer = Visualizer()
     dca_server = DCAServer()
 
     def run():
         for i in range(dca_server.get_total()):
-            time.sleep(0.001)
+            time.sleep(1)
             try:
                 # Tiến hành các bước tick của server
                 dca_server.tick()
@@ -33,14 +38,15 @@ if __name__ == '__main__':
                 dcas = dca_server.get_dcas()
                 visualizer.set_dcas(dcas)
 
-                if distant > 1000:  # Điều kiện khác khi distant lớn hơn 2500
+                visualizer.set_last_time(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
+                if distant > 500:  # Điều kiện khác khi distant lớn hơn 2500
                     L_point, S_point = calculate_points(lower, upper, ma)
 
                     # Xử lý lệnh Long
-                    if rsi <= 30:
+                    if rsi <= 100:
                         if dca_server.GetDACNum() == 0:  # Chưa có lệnh Long nào được khớp
                             print("detect push long")
-                            dca_server.put_long(L_point, 2, 10)
+                            dca_server.put_long(L_point, 2, 0.002)
 
                     # else:  # RSI không còn ≤ 25
                     #     if dca_server.GetDACNum() != 0:  # Chưa có lệnh nào khớp
@@ -49,10 +55,10 @@ if __name__ == '__main__':
 
 
                     # Xử lý lệnh Short
-                    if rsi >= 70:
+                    if rsi >= 0:
                         if dca_server.GetDACNum() == 0:  # Chưa có lệnh Short nào được khớp
                             print("detect push short")
-                            dca_server.put_short(S_point, 2, 10)
+                            dca_server.put_short(S_point, 2, 0.002)
 
                     # else:  # RSI không còn ≥ 75
                     #     if dca_server.GetDACNum() != 0:  # Chưa có lệnh nào khớp

@@ -8,7 +8,7 @@ tradding_fee = 0.0400 / 100
 
 
 class User:
-    budget = 50
+    budget = 500
 
     def add_profit(self, profit, server):
         self.budget = self.budget + profit

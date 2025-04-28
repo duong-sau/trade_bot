@@ -1,7 +1,10 @@
 import threading
+import time
+from datetime import datetime
+
 import numpy as np
 from matplotlib import pyplot as plt, animation
-
+import matplotlib.dates as mdates
 class Visualizer:
 
     MAX_COLUMNS = 120
@@ -10,6 +13,7 @@ class Visualizer:
         self.tick = 0
         self.trade_lines = []
         self.trades =  []
+        self.last_time = None
         self.fig, self.ax = plt.subplots()
         self.lines = {
             "current": self.ax.plot([], [], label="Current", color="black")[0],
@@ -64,6 +68,18 @@ class Visualizer:
 
     def _animate(self, frame):
         with self.lock:
+            # if self.last_time is None:
+            #     x = np.arange(len(self.data["current"]))
+            # else:
+            #     timestamp = datetime.strptime(self.last_time, '%m/%d/%Y, %H:%M:%S').timestamp()
+            #
+            #     # Round timestamp down to nearest 5 minute interval
+            #     first_time = int(timestamp - (timestamp % 300))
+            #     first_time = first_time - len(self.data["current"]) * 300
+            #
+            #     x = [(datetime.fromtimestamp(first_time + (len(self.data["current"]) + i) * 300)) for i in range(len(self.data["current"]))]
+            #     self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+            #     self.ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
             x = np.arange(len(self.data["current"]))
 
             for key, line in self.lines.items():
@@ -73,7 +89,7 @@ class Visualizer:
                 latest_distant = self.data["distant"][-1]
                 latest_rsi = self.data["rsi"][-1]
                 self.text_box.set_text(
-                    f"Distant: {latest_distant:.2f}\nRSI: {latest_rsi:.2f}"
+                    f"{self.last_time} \n Price: {self.data["current"][-1]}\nDistant: {latest_distant:.2f}\nRSI: {latest_rsi:.2f}"
                 )
 
             if len(x) > 0:
@@ -114,4 +130,6 @@ class Visualizer:
 
     def set_dcas(self, dcas):
         self.dcas = dcas
-    
+
+    def set_last_time(self, timestamp):
+        self.last_time = timestamp
