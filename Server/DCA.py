@@ -1,4 +1,4 @@
-from Server.Binance.BinanceServer import BinanceServer, ORDER_ACTION
+from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
 from Tool import dca_long, dca_short
@@ -25,7 +25,7 @@ class DCAServer:
     tp2_ratio = 0.1 / 100
 
     def __init__(self):
-        self.binance_server = BinanceServer()
+        self.binance_server = BinanceTestServer()
         self.DACS = []
         self.khop_lenh = False
         self.position = POSITION_SIDE.NONE
@@ -103,7 +103,6 @@ class DCAServer:
         if message.action == ORDER_ACTION.FILLED:
             if message.order.type == ORDER_TYPE.LIMIT:
                 if message.order.id == self.limit1:
-                    # TODO change order.amount to limit 1 amount + limit 2 amount
                     self.sl = self.binance_server.open_order(order_type=ORDER_TYPE.SL, side=self.position, amount=message.order.amount, entry=self.sl_val, reduce_only=True)
                     self.tp1 = self.binance_server.open_order(order_type=ORDER_TYPE.TP, side=self.position, amount=message.order.amount, entry=self.tp1_val, reduce_only=True)
                 if message.order.id == self.limit2:

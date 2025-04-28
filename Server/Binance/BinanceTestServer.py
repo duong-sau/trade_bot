@@ -18,7 +18,7 @@ class ServerOrderMessage:
         self.action = action
         self.order = order
 
-class BinanceServer:
+class BinanceTestServer:
     main_thread = None
     klines_server = None
     user = None
@@ -58,17 +58,19 @@ class BinanceServer:
     def check_order(self, current):
         for order in self.order_list:
             if order.check_fill(current):
-                log_order("FILLED", order, self.get_current_time())
+                self.action_when_filled(order, current)
 
-                self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.FILLED, order))
-                if order.type == ORDER_TYPE.LIMIT:
-                    self.position.extend(order)
-                    self.order_list.remove(order)
-                else:
-                    self.position.remove(order)
-                    self.user.add_profit(self.position.get_profit(current), self)
-                    self.order_list.remove(order)
+    def action_when_filled(self, order, current):
+        log_order("FILLED", order, self.get_current_time())
 
+        self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.FILLED, order))
+        if order.type == ORDER_TYPE.LIMIT:
+            self.position.extend(order)
+            self.order_list.remove(order)
+        else:
+            self.position.remove(order)
+            self.user.add_profit(self.position.get_profit(current), self)
+            self.order_list.remove(order)
 
     # Public Order API --------------------------------------------------------------------------------------------------------------------
     def open_order(self, order_type, side, amount, entry, reduce_only =False):
@@ -87,8 +89,6 @@ class BinanceServer:
                 self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.CANCELLED, order))
                 break
 
-
-
     # Public -----------------------------------------------------------------------------------------------------------
 
     def get_current(self):
@@ -106,3 +106,9 @@ class BinanceServer:
     def get_total(self):
         return self.klines_server.get_total()
 
+    # API from server ----------------------------------------------------------------------------------------------------
+    def handel_message(self, message):
+        if message.action == ORDER_ACTION.FILLED:
+            self.action_when_filled(message.order, self.get_current())
+        elif message.action == ORDER_ACTION.CANCELLED:
+            self.position.remove(message.order)

@@ -59,10 +59,6 @@ if __name__ == '__main__':
                     #         print("detect clear all")
                     #         dca_server.clear_all_orders()  # Hủy tất cả lệnh Short chưa khớp
 
-
-                # Cập nhật trạng thái hiện tại
-                bk_current, bk_upper, bk_lower = current, upper, lower
-
             except Exception as e:
                 traceback.print_exc()
                 exit(0)
