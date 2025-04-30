@@ -1,10 +1,11 @@
 import sys
-
+import os
 from PyQt5.QtWidgets import QMessageBox
 import logging
+from Tool import get_data_folder_path
 
 logging.basicConfig(
-    filename="sys_log.log",  # File log
+    filename=os.path.join(get_data_folder_path(), "sys_log.log"),  # File log
     level=logging.DEBUG,        # Level log (DEBUG -> ghi mọi thứ)
     format="%(asctime)s - %(levelname)s - %(message)s",  # Định dạng
     datefmt="%Y-%m-%d %H:%M:%S"  # Định dạng thời gian

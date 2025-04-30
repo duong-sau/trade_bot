@@ -1,11 +1,16 @@
+import os
 import sys
 from queue import Queue
+
+import ccxt
 import pandas as pd
-from RealServer.Common import open_limit, open_take_profit, cancel_order, open_stop_loss
+
+from RealServer import api_key, api_secret, testnet
+from RealServer.Common import open_limit, open_take_profit, cancel_order, open_stop_loss, SetClient
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION, ServerOrderMessage
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
-from Tool import log_order
+from Tool import log_order, get_window_klines, get_data_folder_path
 from logger import print_log_error, log_error
 
 
@@ -15,6 +20,18 @@ class BinanceServer:
 
     def __init__(self):
         super().__init__()
+
+        self.websocket_file = os.path.join(get_data_folder_path(), "websocket.csv")
+
+        client = ccxt.binance({
+            'apiKey': api_key,
+            'secret': api_secret,
+            'enableRateLimit': True,
+            'options': {'defaultType': 'future', 'adjustForTimeDifference': True},
+        })
+        client.set_sandbox_mode(testnet)
+        SetClient(client)
+
         self.running = None
         self.sub_server = BinanceTestServer(True)
         self.websocket_thread = None
@@ -88,28 +105,9 @@ class BinanceServer:
     
     
     def get_window_klines(self, param):
-        """Reads 5-minute interval close prices from CSV file."""
         try:
-            import pandas as pd
-            from datetime import datetime
-
-            # Generate current date string
-            current_date = datetime.now().strftime('%d_%m_%y')
-
-            # Read CSV file with current date
-            df = pd.read_csv(f'price_{current_date}.csv', names=['timestamp', 'price'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S')
-
-            # Set timestamp as index and resample to 5-minute intervals
-            df.set_index('timestamp', inplace=True)
-            df_5min = df.resample('5min').last()
-
-            # Get last param (or 20 if param is None) prices
-            limit = param if param else 20
-            close_prices = df_5min['price'].tail(limit).tolist()
-
-            return close_prices
-
+            prices, _ = get_window_klines(param)
+            return prices
         except:
             log_error()
             return []

@@ -1,11 +1,15 @@
 import math
+import os
+import sys
+
 import pandas as pd
 from tqdm import tqdm
 import csv
 from datetime import datetime
 
 from Server.Binance.Types.Order import ORDER_SIDE, ORDER_TYPE
-
+import pandas as pd
+from datetime import datetime
 
 # Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands
 def compute_bb_2(input_data):
@@ -114,19 +118,24 @@ def log_order(action, order, server_time):
     tqdm.write(log_text)
 
     # Write to CSV file in append mode
-    with open('systemlog.csv', 'a', newline='') as csvfile:
+    systemlog_path = os.path.join(get_data_folder_path(), 'systemlog.csv')
+    with open(systemlog_path, 'a', newline='') as csvfile:
         csvfile.write(log_text + '\n')
 
+
+def get_data_folder_path():
+    timestamp = datetime.now().strftime("%d_%m_%y-%H")
+    folder_path = f'./DATA/{timestamp}' if len(sys.argv) < 2 else f'./DATA/{sys.argv[1]}'
+    os.makedirs(folder_path, exist_ok=True)
+    return folder_path
+
+kline_file_path = os.path.join(get_data_folder_path(), 'price.csv')
+
 def get_window_klines(param):
+    global kline_file_path
     """Reads 5-minute interval close prices from CSV file."""
-    import pandas as pd
-    from datetime import datetime
-
-    # Generate current date string
-    current_date = datetime.now().strftime('%d_%m_%y')
-
     # Read CSV file with current date
-    df = pd.read_csv(f'price_{current_date}.csv', names=['timestamp', 'price'])
+    df = pd.read_csv(kline_file_path, names=['timestamp', 'price'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S')
 
     # Set timestamp as index and resample to 5-minute intervals

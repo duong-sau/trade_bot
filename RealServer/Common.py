@@ -1,10 +1,15 @@
+import ccxt
 from binance.exceptions import BinanceRequestException, BinanceAPIException
 from logger import log_error
-import RealServer
+client: ccxt.binance = None
+
+def SetClient(c):
+    global client
+    client = c
 
 def open_limit(symbol, side, amount, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol,
+        order = client.createOrder(symbol=symbol,
                                    type="limit",
                                    side="BUY",
                                    amount=amount,
@@ -18,7 +23,7 @@ def open_limit(symbol, side, amount, price):
 
 def open_take_profit(symbol,side, quantity, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol, type="market", side="SELL", amount=quantity, price=price, params={"takeProfitPrice": price,"positionSide": side})
+        order = client.createOrder(symbol=symbol, type="market", side="SELL", amount=quantity, price=price, params={"takeProfitPrice": price,"positionSide": side})
         return order['id']
     except Exception as e:
         if '"code":-2021' in str(e.args[0]):
@@ -30,7 +35,7 @@ def open_take_profit(symbol,side, quantity, price):
 
 def open_stop_loss(symbol, side, quantity, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol,
+        order = client.createOrder(symbol=symbol,
                                               type="market",
                                               side="SELL",
                                               amount=quantity,
@@ -47,7 +52,7 @@ def open_stop_loss(symbol, side, quantity, price):
 
 def force_stop_loss(symbol, quantity, side):
     try:
-        order = RealServer.client.createOrder(symbol=symbol,
+        order = client.createOrder(symbol=symbol,
                                    type="market",
                                    side=side,
                                    amount=quantity,
@@ -61,7 +66,7 @@ def force_stop_loss(symbol, quantity, side):
 
 def cancel_order(symbol, order_id):
     try:
-        RealServer.client.cancel_order(symbol=symbol, id=order_id)
+        client.cancel_order(symbol=symbol, id=order_id)
     except:
         log_error()
 
