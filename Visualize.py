@@ -62,8 +62,14 @@ class Visualizer:
                 self.data["rsi"].append(rsi)
 
             for key in self.data:
+
+                if len(self.data[key]) < self.MAX_COLUMNS /2 :
+                    self.data[key].append(self.data[key][-1])
+
                 if len(self.data[key]) > self.MAX_COLUMNS:
                     self.data[key].pop(0)
+
+
         self.tick += 1
 
     def _animate(self, frame):
@@ -82,14 +88,27 @@ class Visualizer:
             #     self.ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
             x = np.arange(len(self.data["current"]))
 
+            # Clear existing annotations
+            for artist in self.ax.texts:
+                if artist == self.text_box:
+                    continue
+                artist.remove()
+
+            # Update lines and add new annotations
             for key, line in self.lines.items():
                 line.set_data(x, self.data[key])
+                if len(self.data[key]) > 0:
+                    self.ax.annotate(f'{self.data[key][-1]:.0f}',
+                                     xy=(x[-1], self.data[key][-1]),
+                                     xytext=(5, 0),
+                                     textcoords='offset points',
+                                     va='center')
 
             if len(self.data["distant"]) > 0 and len(self.data["rsi"]) > 0:
                 latest_distant = self.data["distant"][-1]
                 latest_rsi = self.data["rsi"][-1]
                 self.text_box.set_text(
-                    f"{self.last_time} \n Price: {self.data["current"][-1]}\nDistant: {latest_distant:.2f}\nRSI: {latest_rsi:.2f}"
+                    f"{self.last_time} \nPrice: {self.data["current"][-1]}\nDistant: {latest_distant:.2f}\nRSI: {latest_rsi:.2f}"
                 )
 
             if len(x) > 0:
@@ -97,8 +116,9 @@ class Visualizer:
 
                 upper = max(self.data["upper"]) if self.data["upper"] else 1
                 lower = min(self.data["lower"]) if self.data["lower"] else 0
-                margin = (upper - lower) * 2
-                self.ax.set_ylim(lower - margin, upper + margin)
+                # margin = (upper - lower) * 0.1
+                # self.ax.set_ylim(lower - margin, upper + margin)
+                self.ax.set_ylim(self.data["current"][-1] - 200, self.data["current"][-1] + 200)
 
             # Xoá các line trade cũ
             for line in self.trade_lines:
@@ -109,9 +129,9 @@ class Visualizer:
             for trade in self.trades:
                 # Fill between entry and sl/tp lines
                 x_range = [self.ax.get_xlim()[0], self.ax.get_xlim()[1]]
-                sl_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["sl"]] * 2, color='red', alpha=0.1)
+                sl_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["sl"]] * 2, color='red', alpha=0.5)
                 tp_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["tp"]] * 2, color='green',
-                                               alpha=0.1)
+                                               alpha=0.5)
 
                 self.trade_lines.extend([sl_fill, tp_fill])
 

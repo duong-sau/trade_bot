@@ -2,7 +2,7 @@ from RealServer.Binance import BinanceServer
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
-from Tool import dca_long, dca_short
+from Tool import dca_long, dca_short, log_order
 
 
 class DCA:
@@ -22,8 +22,8 @@ def create_volumes(volume, n):
 
 class DCAServer:
 
-    tp1_ratio = 0.5 / 100
-    tp2_ratio = 0.1 / 100
+    tp1_ratio = 0.1 / 100
+    tp2_ratio = 0.02 / 100
 
     def __init__(self):
         # self.binance_server = BinanceTestServer()
@@ -60,8 +60,9 @@ class DCAServer:
         self.volumes = volumes
 
         self.sl_val = dca_s[-1]
-        self.tp1_val = dca_s[0] *(1 - self.tp1_ratio)
-        self.tp2_val = (dca_s[0] * volumes[0] + dca_s[1]* volumes[1]) / (volumes[0] + volumes[1]) * (1 - self.tp2_ratio)
+        self.tp1_val = round(dca_s[0] * (1 + self.tp1_ratio), 1)
+        self.tp2_val = round(
+            (dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 + self.tp2_ratio), 1)
 
         vl = volumes[0]
         entry = dca_s[0]
@@ -84,8 +85,9 @@ class DCAServer:
         self.volumes = volumes
         self.sl_val = dca_s[-1]
 
-        self.tp1_val = dca_s[0] * (1 - self.tp1_ratio)
-        self.tp2_val = (dca_s[0] * volumes[0] + dca_s[1]* volumes[1]) / (volumes[0] + volumes[1]) * (1 - self.tp2_ratio)
+        self.tp1_val = round(dca_s[0] * (1 - self.tp1_ratio), 1)
+        self.tp2_val = round(
+            (dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 - self.tp2_ratio), 1)
 
         vl = volumes[0]
         entry = dca_s[0]
@@ -102,6 +104,7 @@ class DCAServer:
         self.khop_lenh = False
 
     def handel_message(self, message):
+        log_order("HERE", message.order, self.binance_server.sub_server.get_current_time())
         if message.action == ORDER_ACTION.FILLED:
             if message.order.type == ORDER_TYPE.LIMIT:
                 if message.order.id == self.limit1:

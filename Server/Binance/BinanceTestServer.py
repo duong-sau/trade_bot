@@ -1,3 +1,5 @@
+import asyncio
+import threading
 from enum import Enum
 from queue import Queue
 
@@ -36,13 +38,14 @@ class BinanceTestServer:
         self.position = Position()
         self.order_list = []
         self.ws_queue = Queue()
+        self.lock = threading.Lock()
 
     # Private API ----------------------------------------------------
-    def tick(self):
-        self.klines_server.up_tick()
-        current = self.klines_server.get_current_price()
-        self.check_order(current)
-
+    def tick(self, test=True):
+        if not test:
+            self.klines_server.up_tick()
+            current = self.klines_server.get_current_price()
+            self.check_order(current)
         sl  = 0
         tp = 0
         for order in self.order_list:
@@ -52,6 +55,8 @@ class BinanceTestServer:
                 sl = order.trigger_price
         if self.position.side != ORDER_SIDE.NONE:
             self.position.update_tp_sl(tp, sl)
+        else:
+            self.position.update_tp_sl(0,0)
         return
 
 
@@ -74,20 +79,20 @@ class BinanceTestServer:
 
     # Public Order API --------------------------------------------------------------------------------------------------------------------
     def open_order(self, order_type, side, amount, entry, reduce_only =False):
+            order = Order(order_type, side, amount, entry, reduce_only)
+            log_order("PLACED", order, self.get_current_time())
 
-        order = Order(order_type, side, amount, entry, reduce_only)
-        log_order("PLACED", order, self.get_current_time())
-
-        self.order_list.append(order)
-        return order.id
+            self.order_list.append(order)
+            return order.id
 
     def cancel_order(self, order_id):
-        for order in self.order_list:
-            if order.id == order_id:
-                log_order("CANCLD", order, self.get_current_time())
-                self.order_list.remove(order)
-                self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.CANCELLED, order))
-                break
+        with self.lock:
+            for order in self.order_list:
+                if order.id == order_id:
+                    log_order("CANCLD", order, self.get_current_time())
+                    self.order_list.remove(order)
+                    self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.CANCELLED, order))
+                    break
 
     # Public -----------------------------------------------------------------------------------------------------------
 
@@ -108,7 +113,8 @@ class BinanceTestServer:
 
     # API from server ----------------------------------------------------------------------------------------------------
     def handel_message(self, message):
-        if message.action == ORDER_ACTION.FILLED:
-            self.action_when_filled(message.order, self.get_current())
-        elif message.action == ORDER_ACTION.CANCELLED:
-            self.position.remove(message.order)
+        with self.lock:
+            if message.action == ORDER_ACTION.FILLED:
+                self.action_when_filled(message.order, self.get_current())
+            elif message.action == ORDER_ACTION.CANCELLED:
+                self.position.remove(message.order)

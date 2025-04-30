@@ -14,21 +14,24 @@ def open_limit(symbol, side, amount, price):
         log_error()
         return None
 
-def open_take_profit(symbol, quantity, price, side):
+def open_take_profit(symbol,side, quantity, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol, type="TAKE_PROFIT", side=side, amount=quantity, price=price, params={"takeProfitPrice": price, "reduceOnly": True})
+        order = RealServer.client.createOrder(symbol=symbol, type="market", side=side, amount=quantity, price=price, params={"takeProfitPrice": price, "reduceOnly": True})
         return order['id']
-    except (BinanceRequestException, BinanceAPIException):
-        log_error()
-        return None
+    except Exception as e:
+        if '"code":-2021' in str(e.args[0]):
+            force_stop_loss(symbol, quantity, side)
+            return False
+        else:
+            log_error()
+            return False
 
-def open_stop_loss(symbol, quantity, price, side):
+def open_stop_loss(symbol, side, quantity, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol, type="STOP", side=side, amount=quantity, price=price, params={"stopLossPrice": price, "reduceOnly": True})
+        order = RealServer.client.createOrder(symbol=symbol, type="market", side=side, amount=quantity, price=price, params={"stopLossPrice": price, "reduceOnly": True})
         return order['id']
-    except BinanceAPIException as e:
-        error_code = e.code
-        if error_code == -2021:
+    except Exception as e:
+        if '"code":-2021' in str(e.args[0]):
             force_stop_loss(symbol, quantity, side)
             return False
         else:

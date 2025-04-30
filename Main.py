@@ -18,6 +18,7 @@ if __name__ == '__main__':
     visualizer = Visualizer()
     dca_server = DCAServer()
 
+
     def run():
         for i in range(dca_server.get_total()):
             time.sleep(1)
@@ -39,8 +40,8 @@ if __name__ == '__main__':
                 visualizer.set_dcas(dcas)
 
                 visualizer.set_last_time(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
-                if distant > 500:  # Điều kiện khác khi distant lớn hơn 2500
-                    L_point, S_point = calculate_points(lower, upper, ma)
+                if distant > 100:  # Điều kiện khác khi distant lớn hơn 2500
+                    L_point, S_point = calculate_points(lower, upper, ma, data[-1])
 
                     # Xử lý lệnh Long
                     if rsi <= 100:

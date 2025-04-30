@@ -1,9 +1,12 @@
+import threading
 import time
 from queue import Queue
 
+import requests
+
 from RealServer import web_socket, client
-from RealServer.BinanceControl.Common import open_limit, open_take_profit, cancel_order
-from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
+from RealServer.BinanceControl.Common import open_limit, open_take_profit, cancel_order, open_stop_loss
+from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION, ServerOrderMessage
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
 from logger import print_log_error, log_error
@@ -22,22 +25,15 @@ class BinanceServer:
 
         self.ws_queue = Queue()
 
-    def run(self):
-        web_socket.start_futures_user_socket(callback=self.process_message)
-        while True:
-            """Runs the thread."""
-            if not self.running:
-                break
-            print('Client is still running')
-            time.sleep(1)
-            """Runs the thread."""
+        def process_message(message):
+            self.process_message(message)
+        web_socket.start_futures_socket(callback=process_message)
 
     def stop(self):
         """Stops the thread."""
         self.running = False
 
     def process_message(self, message):
-        # print_log_info(message)
         try:
             if message['e'] == 'ORDER_TRADE_UPDATE':
                 self.handle_socket_event(message['o'])
@@ -63,9 +59,10 @@ class BinanceServer:
                 return
 
             for order in self.sub_server.order_list:
-                if order_id == order_id:
-                    order.handel(action, price)
-                    self.ws_queue.put(action, order)
+                if order_id == order.id:
+                    m = ServerOrderMessage(action, order)
+                    self.sub_server.handel_message(m)
+                    self.ws_queue.put(m)
 
 
 
@@ -74,18 +71,20 @@ class BinanceServer:
 
     def open_order(self, order_type, side, amount, entry, reduce_only =False):
         """Opens a new order."""
-        self.sub_server.open_order(order_type, side, amount, entry, reduce_only)
-        if order_type == ORDER_TYPE.LIMIT:
-            order_id =  open_limit(self.symbol, "BUY" if side == POSITION_SIDE.LONG else "SELL", amount, entry)
-        elif order_type == ORDER_TYPE.TP:
-            order_id =   open_take_profit(self.symbol, "SELL" if side == POSITION_SIDE.LONG else "BUY", amount, entry)
-        elif order_type == ORDER_TYPE.SL:
-            order_id =   open_take_profit(self.symbol, "SELL" if side == POSITION_SIDE.LONG else "BUY", amount, entry)
-        else:
-            assert False, "Invalid order type."
+        with self.sub_server.lock:
+            self.sub_server.open_order(order_type, side, amount, entry, reduce_only)
+            if order_type == ORDER_TYPE.LIMIT:
+                order_id =  open_limit(self.symbol, "BUY" if side == POSITION_SIDE.LONG else "SELL", amount, entry)
+            elif order_type == ORDER_TYPE.TP:
+                order_id =   open_take_profit(self.symbol, "SELL" if side == POSITION_SIDE.LONG else "BUY", amount, entry)
+            elif order_type == ORDER_TYPE.SL:
+                order_id =   open_stop_loss(self.symbol, "SELL" if side == POSITION_SIDE.LONG else "BUY", amount, entry)
+            else:
+                assert False, "Invalid order type."
 
-        self.sub_server.order_list[-1].id = order_id # replace the order id with the one from the server
-        return order_id
+            self.sub_server.order_list[-1].id = order_id # replace the order id with the one from the server
+            return order_id
+
 
     def cancel_order(self, order_id):
         """Cancels an order."""
@@ -98,14 +97,26 @@ class BinanceServer:
     
     
     def get_window_klines(self, param):
-        """Fetches the last klines from Binance."""
+        """Reads 5-minute interval close prices from CSV file."""
         try:
-            symbol = "BTC/USDT"  # Default trading pair
-            timeframe = "5m"  # Default timeframe
-            limit = param if param else 20  # Use param or default to 20
+            import pandas as pd
+            from datetime import datetime
 
-            klines = client.fetch_ohlcv(symbol, timeframe, limit=limit)
-            close_prices = [kline[4] for kline in klines]
+            # Generate current date string
+            current_date = datetime.now().strftime('%d_%m_%y')
+
+            # Read CSV file with current date
+            df = pd.read_csv(f'price_{current_date}.csv', names=['timestamp', 'price'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S')
+
+            # Set timestamp as index and resample to 5-minute intervals
+            df.set_index('timestamp', inplace=True)
+            df_5min = df.resample('5min').last()
+
+            # Get last param (or 20 if param is None) prices
+            limit = param if param else 20
+            close_prices = df_5min['price'].tail(limit).tolist()
+
             return close_prices
 
         except:
@@ -113,6 +124,7 @@ class BinanceServer:
             return []
 
     def tick(self):
+        self.sub_server.tick(True)
         return
 
     def get_total(self):
