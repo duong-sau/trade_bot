@@ -78,41 +78,23 @@ def compute_rsi(data, period=14):
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
     # Long Points (L0, L1, L2)
-    # L0 = lower
-    # L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
-    # L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
-    #
-    # # Short Points (S0, S1, S2)
-    # S0 = upper
-    # S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
-    # S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
-    L0 = current
-    L1 = current - 50
-    L2 = current - 100
+    L0 = lower
+    L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
+    L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
 
-    S0 = current
-    S1 = current + 50
-    S2 = current + 100
+    # Short Points (S0, S1, S2)
+    S0 = upper
+    S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
+    S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
+    # L0 = current
+    # L1 = current - 50
+    # L2 = current - 100
+    #
+    # S0 = current
+    # S1 = current + 50
+    # S2 = current + 100
 
     return (L0, L1, L2), (S0, S1, S2)
-
-# DCA Long
-def dca_long(L_points):
-    lenh1 = L_points[0]
-    lenh2 = L_points[1]
-    lenh3 = L_points[2]
-
-    dca_points = [lenh1, lenh2, lenh3]
-    return dca_points
-
-# DCA Short
-def dca_short(S_points):
-    lenh1 = S_points[0]
-    lenh2 = S_points[1]
-    lenh3 = S_points[2]
-
-    dca_points = [lenh1, lenh2, lenh3]
-    return dca_points
 
 def log_order(action, order, server_time):
     if order.side == ORDER_SIDE.LONG:
@@ -134,3 +116,26 @@ def log_order(action, order, server_time):
     # Write to CSV file in append mode
     with open('systemlog.csv', 'a', newline='') as csvfile:
         csvfile.write(log_text + '\n')
+
+def get_window_klines(param):
+    """Reads 5-minute interval close prices from CSV file."""
+    import pandas as pd
+    from datetime import datetime
+
+    # Generate current date string
+    current_date = datetime.now().strftime('%d_%m_%y')
+
+    # Read CSV file with current date
+    df = pd.read_csv(f'price_{current_date}.csv', names=['timestamp', 'price'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S')
+
+    # Set timestamp as index and resample to 5-minute intervals
+    df.set_index('timestamp', inplace=True)
+    df_5min = df.resample('5min').last()
+
+    # Get last param (or 20 if param is None) prices
+    limit = param if param else 20
+    close_prices = df_5min['price'].tail(limit).tolist()
+    time_stamps = df_5min['price'].tail(limit).index.tolist()
+
+    return close_prices, time_stamps

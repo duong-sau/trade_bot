@@ -1,9 +1,8 @@
+import Config
 from RealServer.Binance import BinanceServer
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
-from Tool import dca_long, dca_short, log_order
-
 
 class DCA:
 
@@ -22,8 +21,8 @@ def create_volumes(volume, n):
 
 class DCAServer:
 
-    tp1_ratio = 0.1 / 100
-    tp2_ratio = 0.02 / 100
+    tp1_ratio = Config.tp1_ratio / 100
+    tp2_ratio = Config.tp2_ratio / 100
 
     def __init__(self):
         # self.binance_server = BinanceTestServer()
@@ -46,23 +45,17 @@ class DCAServer:
         self.sl = None
 
 
-    def put_long(self, L_points, n, volume):
+    def put_long(self, dca_s, n, volumes):
 
         assert self.khop_lenh == False
-        self.name = "LONG_SERVER"
-        # assert self.position == PositionType.NONE
         self.position = POSITION_SIDE.LONG
-
-        dca_s = dca_long(L_points)
-        volumes = create_volumes(volume, n)
 
         self.dcas = dca_s
         self.volumes = volumes
 
         self.sl_val = round(dca_s[-1], 1)
         self.tp1_val = round(dca_s[0] * (1 + self.tp1_ratio), 1)
-        self.tp2_val = round(
-            (dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 + self.tp2_ratio), 1)
+        self.tp2_val = round((dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 + self.tp2_ratio), 1)
 
         vl = volumes[0]
         entry = dca_s[0]
@@ -72,22 +65,17 @@ class DCAServer:
         entry = dca_s[1]
         self.limit2 = self.binance_server.open_order(order_type=ORDER_TYPE.LIMIT, side=POSITION_SIDE.LONG, amount=vl, entry=entry, reduce_only=False)
 
-    def put_short(self, S_Points, n,  volume):
-        self.name = "SHORT_SERVER"
-        assert self.khop_lenh == False
-        # assert self.position == PositionType.NONE
-        self.position = POSITION_SIDE.SHORT
+    def put_short(self, dca_s, n,  volumes):
 
-        dca_s = dca_short(S_Points)
-        volumes = create_volumes(volume, n)
+        assert self.khop_lenh == False
+        self.position = POSITION_SIDE.SHORT
 
         self.dcas = dca_s
         self.volumes = volumes
         self.sl_val = round(dca_s[-1], 1)
 
         self.tp1_val = round(dca_s[0] * (1 - self.tp1_ratio), 1)
-        self.tp2_val = round(
-            (dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 - self.tp2_ratio), 1)
+        self.tp2_val = round((dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 - self.tp2_ratio), 1)
 
         vl = volumes[0]
         entry = dca_s[0]
