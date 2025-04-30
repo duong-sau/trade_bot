@@ -30,8 +30,8 @@ class BinanceTestServer:
 
     # sl_ratio = 0.3 / 100
 
-    def __init__(self):
-
+    def __init__(self, test):
+        self.test = test
         self.klines_server = KlineServer()
         self.user = User()
 
@@ -41,8 +41,8 @@ class BinanceTestServer:
         self.lock = threading.Lock()
 
     # Private API ----------------------------------------------------
-    def tick(self, test=True):
-        if not test:
+    def tick(self):
+        if not self.test:
             self.klines_server.up_tick()
             current = self.klines_server.get_current_price()
             self.check_order(current)
@@ -74,7 +74,7 @@ class BinanceTestServer:
             self.order_list.remove(order)
         else:
             self.position.remove(order)
-            self.user.add_profit(self.position.get_profit(current), self)
+            self.user.add_profit(self.position.get_profit(current), self, test=self.test)
             self.order_list.remove(order)
 
     # Public Order API --------------------------------------------------------------------------------------------------------------------

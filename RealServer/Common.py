@@ -6,9 +6,11 @@ def open_limit(symbol, side, amount, price):
     try:
         order = RealServer.client.createOrder(symbol=symbol,
                                    type="limit",
-                                   side=side,
+                                   side="BUY",
                                    amount=amount,
-                                   price=price)
+                                   price=price,
+                                   params={"positionSide": side}
+                                )
         return order['id']
     except:
         log_error()
@@ -16,7 +18,7 @@ def open_limit(symbol, side, amount, price):
 
 def open_take_profit(symbol,side, quantity, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol, type="market", side=side, amount=quantity, price=price, params={"takeProfitPrice": price, "reduceOnly": True})
+        order = RealServer.client.createOrder(symbol=symbol, type="market", side="SELL", amount=quantity, price=price, params={"takeProfitPrice": price,"positionSide": side})
         return order['id']
     except Exception as e:
         if '"code":-2021' in str(e.args[0]):
@@ -28,7 +30,12 @@ def open_take_profit(symbol,side, quantity, price):
 
 def open_stop_loss(symbol, side, quantity, price):
     try:
-        order = RealServer.client.createOrder(symbol=symbol, type="market", side=side, amount=quantity, price=price, params={"stopLossPrice": price, "reduceOnly": True})
+        order = RealServer.client.createOrder(symbol=symbol,
+                                              type="market",
+                                              side="SELL",
+                                              amount=quantity,
+                                              price=price,
+                                              params={"stopLossPrice": price, "positionSide": side})
         return order['id']
     except Exception as e:
         if '"code":-2021' in str(e.args[0]):
@@ -41,13 +48,13 @@ def open_stop_loss(symbol, side, quantity, price):
 def force_stop_loss(symbol, quantity, side):
     try:
         order = RealServer.client.createOrder(symbol=symbol,
-                                   type="STOP_MARKET",
+                                   type="market",
                                    side=side,
                                    amount=quantity,
-                                   params={"stopLossPrice": 0, "reduceOnly": True}
+                                   params={"positionSide": side}
                                    )
         return order['id']
-    except:
+    except Exception as e:
         log_error()
         return None
 

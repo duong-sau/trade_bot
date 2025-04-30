@@ -59,7 +59,7 @@ class DCAServer:
         self.dcas = dca_s
         self.volumes = volumes
 
-        self.sl_val = dca_s[-1]
+        self.sl_val = round(dca_s[-1], 1)
         self.tp1_val = round(dca_s[0] * (1 + self.tp1_ratio), 1)
         self.tp2_val = round(
             (dca_s[0] * volumes[0] + dca_s[1] * volumes[1]) / (volumes[0] + volumes[1]) * (1 + self.tp2_ratio), 1)
@@ -83,7 +83,7 @@ class DCAServer:
 
         self.dcas = dca_s
         self.volumes = volumes
-        self.sl_val = dca_s[-1]
+        self.sl_val = round(dca_s[-1], 1)
 
         self.tp1_val = round(dca_s[0] * (1 - self.tp1_ratio), 1)
         self.tp2_val = round(
@@ -104,7 +104,7 @@ class DCAServer:
         self.khop_lenh = False
 
     def handel_message(self, message):
-        log_order("HERE", message.order, self.binance_server.sub_server.get_current_time())
+        # log_order("HERE", message.order, self.binance_server.sub_server.get_current_time())
         if message.action == ORDER_ACTION.FILLED:
             if message.order.type == ORDER_TYPE.LIMIT:
                 if message.order.id == self.limit1:
