@@ -19,6 +19,13 @@ def create_volumes(volume, n):
     return volumes
 
 
+class TRADE_STEP:
+    NONE = 0
+    LIMIT1_FILLED = 1
+    LIMIT2_FILLED = 2
+    ALL_CLOSED = 3
+
+
 class DCAServer:
 
     tp1_ratio = Config.tp1_ratio / 100
@@ -44,8 +51,20 @@ class DCAServer:
 
         self.sl = None
 
+        self.last_trade_time = None
+        self.trade_step = TRADE_STEP.NONE
+
+        self.current_tp1_ratio = 0
+        self.current_tp2_ratio = 0
+
+        self.limit2_filled_time = None
 
     def put_long(self, dca_s, n, volumes):
+
+        self.current_tp1_ratio = self.tp1_ratio
+        self.current_tp2_ratio = self.tp2_ratio
+
+        self.last_trade_time = self.binance_server.get_current_time()
 
         assert self.khop_lenh == False
         self.position = POSITION_SIDE.LONG
@@ -67,8 +86,13 @@ class DCAServer:
 
     def put_short(self, dca_s, n,  volumes):
 
+        self.current_tp1_ratio = self.tp1_ratio
+        self.current_tp2_ratio = self.tp2_ratio
+
         assert self.khop_lenh == False
         self.position = POSITION_SIDE.SHORT
+
+        self.last_trade_time = self.binance_server.get_current_time()
 
         self.dcas = dca_s
         self.volumes = volumes
@@ -85,11 +109,30 @@ class DCAServer:
         entry = dca_s[1]
         self.limit2 = self.binance_server.open_order(order_type=ORDER_TYPE.LIMIT, side=POSITION_SIDE.SHORT, amount=vl, entry=entry, reduce_only=False)
 
-    def clear_all_orders(self):
-        #tqdm.write(f"Clear all orders: {len(self.DACS)} -- {self.binance_server.get_current_time()} {self.name}")
+
+    def cancel_by_timeout(self):
         self.DACS = []
         self.position = POSITION_SIDE.NONE
-        self.khop_lenh = False
+
+        self.last_trade_time = None
+        if self.trade_step == TRADE_STEP.NONE:
+            self.binance_server.cancel_order(self.limit1)
+            self.limit1 = None
+            self.binance_server.cancel_order(self.limit2)
+        self.trade_step = TRADE_STEP.NONE
+
+    def get_limit2_filled_time(self):
+        if self.trade_step != TRADE_STEP.LIMIT2_FILLED:
+            return None
+        return self.binance_server.get_current_time() - self.limit2_filled_time
+
+    def decrease_tp(self):
+        if self.trade_step == TRADE_STEP.LIMIT2_FILLED:
+            if self.position == POSITION_SIDE.LONG:
+                self.current_tp2_ratio = self.current_tp2_ratio - 1/100
+                self.binance_server.cancel_order(self.tp2)
+                self.tp2_val = round(self.tp2_val * (1 + self.current_tp2_ratio), 1)
+                self.tp2 = self.binance_server.open_order(order_type=ORDER_TYPE.TP, side=self.position, amount=self.volumes[0] + self.volumes[1], entry=self.tp2_val, reduce_only=True)
 
     def handel_message(self, message):
         # log_order("HERE", message.order, self.binance_server.sub_server.get_current_time())
@@ -98,16 +141,20 @@ class DCAServer:
                 if message.order.id == self.limit1:
                     self.sl = self.binance_server.open_order(order_type=ORDER_TYPE.SL, side=self.position, amount=message.order.amount, entry=self.sl_val, reduce_only=True)
                     self.tp1 = self.binance_server.open_order(order_type=ORDER_TYPE.TP, side=self.position, amount=message.order.amount, entry=self.tp1_val, reduce_only=True)
+                    self.trade_step = TRADE_STEP.LIMIT1_FILLED
                 if message.order.id == self.limit2:
-
                     volume = self.volumes[0] + self.volumes[1]
 
-                    self.tp2 = self.binance_server.open_order(order_type=ORDER_TYPE.TP, side=self.position, amount=volume, entry=self.tp2_val, reduce_only=True)
+                    self.tp2 = self.binance_server.open_order(order_type=ORDER_TYPE.TP, side=self.position,
+                                                              amount=volume, entry=self.tp2_val, reduce_only=True)
                     self.binance_server.cancel_order(self.tp1)
                     self.tp1 = None
 
                     self.binance_server.cancel_order(self.sl)
-                    self.sl = self.binance_server.open_order(order_type=ORDER_TYPE.SL, side=self.position, amount=volume, entry = self.sl_val, reduce_only=True)
+                    self.sl = self.binance_server.open_order(order_type=ORDER_TYPE.SL, side=self.position,
+                                                             amount=volume, entry=self.sl_val, reduce_only=True)
+                    self.trade_step = TRADE_STEP.LIMIT2_FILLED
+                    self.limit2_filled_time = self.binance_server.get_current_time()
 
             elif message.order.type == ORDER_TYPE.TP:
                 if message.order.id == self.tp1 or message.order.id == self.tp2:
@@ -116,6 +163,7 @@ class DCAServer:
 
                     self.binance_server.cancel_order(self.limit2)
                     self.limit2 = None
+                    self.trade_step = TRADE_STEP.ALL_CLOSED
             elif message.order.type == ORDER_TYPE.SL:
                 if self.tp2 != None:
                     self.binance_server.cancel_order(self.tp2)
@@ -126,7 +174,7 @@ class DCAServer:
 
                     self.binance_server.cancel_order(self.limit2)
                     self.limit2 = None
-
+                self.trade_step = TRADE_STEP.ALL_CLOSED
 
     def tick(self):
         self.binance_server.tick()
@@ -134,8 +182,13 @@ class DCAServer:
             message = self.binance_server.ws_queue.get()
             self.handel_message(message)
 
+    def get_alive_time(self):
+        return self.binance_server.get_current_time() - self.last_trade_time
 
-    def GetDACNum(self):
+    def get_trade_step(self):
+        return self.trade_step
+
+    def get_dac_num(self):
         return len(self.DACS) + self.binance_server.sub_server.order_list.__len__()
 
     def get_trades(self):

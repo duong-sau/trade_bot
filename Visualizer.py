@@ -73,7 +73,7 @@ class Visualizer:
             #     x = [(datetime.fromtimestamp(first_time + (len(self.data["current"]) + i) * 300)) for i in range(len(self.data["current"]))]
             #     self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
             #     self.ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
-            x = self.x
+            x = np.arange(len(self.data["current"]))
 
             # Clear existing annotations
             for artist in self.ax.texts:

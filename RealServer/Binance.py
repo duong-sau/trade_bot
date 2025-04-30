@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime
 from queue import Queue
 
 import ccxt
@@ -145,3 +146,6 @@ class BinanceServer:
 
     def get_total(self):
         return 1000000000
+
+    def get_current_time(self):
+        return datetime.now()

@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+import datetime
 import threading
 import time
 import traceback
@@ -11,7 +11,7 @@ from numpy import ma
 import Config
 from Animation import step
 # from RealServer.DCA import DCAServer
-from Server.DCA import DCAServer
+from Server.DCA import DCAServer, TRADE_STEP
 from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, set_terminal_title
 
 
@@ -59,13 +59,27 @@ class TradingSystem:
 
             # Xử lý lệnh Long
             if rsi <= Config.rsi_long:
-                if self.dca_server.GetDACNum() == 0:  # Chưa có lệnh Long nào được khớp
+                if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Long nào được khớp
                     self.dca_server.put_long(L_point, 2, [Config.n1, Config.n2])
 
             # Xử lý lệnh Short
             if rsi >= Config.rsi_short:
-                if self.dca_server.GetDACNum() == 0:  # Chưa có lệnh Short nào được khớp
+                if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Short nào được khớp
                     self.dca_server.put_short(S_point, 2, [Config.n1, Config.n2])
+
+        # Sau 5 phut
+        if self.dca_server.get_dac_num() > 0:
+            if self.dca_server.get_trade_step() == TRADE_STEP.NONE:
+                if self.dca_server.get_alive_time() is None:
+                  return
+                elif self.dca_server.get_alive_time() > datetime.timedelta(minutes=1):
+                    self.dca_server.cancel_by_timeout()
+
+            if self.dca_server.get_trade_step() == TRADE_STEP.LIMIT2_FILLED:
+                if self.dca_server.get_limit2_filled_time() is None:
+                  return
+                elif self.dca_server.get_limit2_filled_time() > datetime.timedelta(minutes=1):
+                    self.dca_server.decrease_tp()
 
     def visualize_run(self):
         dcas = self.dca_server.get_dcas()

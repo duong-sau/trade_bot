@@ -12,7 +12,7 @@ def start_cmd(script_name, window_name, container_hwnd, window_size):
     # Mở CMD và chạy script
     # cd /d "{os.getcwd()}" &&
     # os.system(f'start cmd /k python "{script_name}"')
-    os.system(f'start cmd /k "cd /d {os.getcwd()} & python {script_name} & exit"')
+    os.system(f'start cmd /k "cd /d {os.getcwd()} & {script_name} & exit"')
 
     for _ in range(30):
         time.sleep(1)  # Đợi CMD mở
@@ -33,7 +33,7 @@ class ProcessMonitor(QMainWindow):
         self.setGeometry(0, 0, 1200, 800)
 
         # Danh sách script
-        self.scripts = ['Price.py', 'Main.py', 'Websocket.py', "Visualizer.py"]
+        self.scripts = ['python Price.py', 'python Main.py', 'python Websocket.py', "pythonw Visualizer.py"]
         self.window_name = ['Price', 'Main', 'Websocket', "Figure 1"]
         self.row_column_spans = [(2, 2, 1, 1), (0, 1, 1, 2), (1, 2, 1, 1), (1, 0, 2, 2)]  # Các ô trong grid
         self.window_sizes = [(600, 300), (1200, 300), (600, 300), (1200, 600)]  # Kích thước của các widget
