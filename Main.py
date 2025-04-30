@@ -1,9 +1,4 @@
-import asyncio
 from datetime import datetime
-
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-import sys
 import threading
 import time
 import traceback

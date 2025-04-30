@@ -1,6 +1,8 @@
 import math
 import pandas as pd
 from tqdm import tqdm
+import csv
+from datetime import datetime
 
 from Server.Binance.Types.Order import ORDER_SIDE, ORDER_TYPE
 
@@ -112,7 +114,7 @@ def dca_short(S_points):
     dca_points = [lenh1, lenh2, lenh3]
     return dca_points
 
-def log_order(action, order, current_time):
+def log_order(action, order, server_time):
     if order.side == ORDER_SIDE.LONG:
         side_text = "LONG"
     else:
@@ -126,4 +128,9 @@ def log_order(action, order, current_time):
         order_text = "___SL"
     else:
         assert False
-    tqdm.write(f"{action} : id: {order.id} - amount: {order.amount:.6f} - price: {order.trigger_price:.6f} - {side_text} {order_text} --  {current_time}")
+    log_text = f"{server_time}\taction: {action}\tside: {side_text}\ttype: {order_text}\tamount: {order.amount:.6f}\tprice: {order.trigger_price:.6f}\tid: {order.id}"
+    tqdm.write(log_text)
+
+    # Write to CSV file in append mode
+    with open('systemlog.csv', 'a', newline='') as csvfile:
+        csvfile.write(log_text + '\n')

@@ -1,7 +1,13 @@
 import configparser
+import sys
 
 import ccxt
 from binance import ThreadedWebsocketManager
+
+import asyncio
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 time_step = 1
 
@@ -47,12 +53,7 @@ def set_mock_client(mock_client):
     client = mock_client
 
 
-web_socket = ThreadedWebsocketManager(
-    api_secret=api_secret,
-    api_key=api_key,
-    testnet=testnet)
-web_socket.start()
-print('Websocket reconnected')
+
 
 def set_mock_websocket_thread(mock_websocket):
     """

@@ -1,10 +1,5 @@
-import threading
-import time
 from queue import Queue
-
-import requests
-
-from RealServer import web_socket, client
+import pandas as pd
 from RealServer.BinanceControl.Common import open_limit, open_take_profit, cancel_order, open_stop_loss
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION, ServerOrderMessage
 from Server.Binance.Types.Order import ORDER_TYPE
@@ -22,12 +17,8 @@ class BinanceServer:
         self.sub_server = BinanceTestServer()
         self.websocket_thread = None
         self.client = None
-
+        self.ws_counter = -1
         self.ws_queue = Queue()
-
-        def process_message(message):
-            self.process_message(message)
-        web_socket.start_futures_socket(callback=process_message)
 
     def stop(self):
         """Stops the thread."""
@@ -124,6 +115,33 @@ class BinanceServer:
             return []
 
     def tick(self):
+        try:
+            # Read CSV file
+            df = pd.read_csv('websocket.csv', names=['counter','time' 'message'])
+            #first connect
+            if self.ws_counter == -1:
+                self.ws_counter = df.iloc[-1]['counter']
+                return
+            # nothing change
+            if self.ws_counter == df.iloc[-1]['counter']:
+                return
+            while True:
+                # Get messages with counter greater than current
+                new_messages = df[df['counter'] > self.ws_counter]
+
+                if new_messages.empty:
+                    break
+
+                # Process each new message
+                for _, row in new_messages.iterrows():
+                    message = eval(row['message'])
+                    self.process_message(message)
+                    self.ws_counter = row['counter']
+                break
+
+        except Exception as e:
+            log_error()
+
         self.sub_server.tick(True)
         return
 
