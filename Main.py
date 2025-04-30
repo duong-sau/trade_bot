@@ -12,7 +12,7 @@ import Config
 from Animation import step
 # from RealServer.DCA import DCAServer
 from Server.DCA import DCAServer
-from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path
+from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, set_terminal_title
 
 
 class TradingSystem:
@@ -79,5 +79,6 @@ class TradingSystem:
 
 
 if __name__ == '__main__':
+    set_terminal_title("Main")
     trading_system = TradingSystem()
     trading_system.run()

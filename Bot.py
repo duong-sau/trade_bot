@@ -1,36 +1,28 @@
 import sys
-import subprocess
-import psutil
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QWidget, QHBoxLayout
-from PyQt5.QtCore import QTimer
+import os
+import time
+import ctypes
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QTableWidget, \
+    QTableWidgetItem, QGridLayout
+from qt_material import apply_stylesheet
 
 
-# Kiểm tra trạng thái của script
-def is_process_running(script_name):
-    for proc in psutil.process_iter(['name', 'cmdline']):
-        try:
-            if proc.info['cmdline'] and script_name in proc.info['cmdline']:
-                return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-    return False
+# Hàm khởi chạy CMD và lấy handle
+def start_cmd(script_name, window_name, container_hwnd, window_size):
+    # Mở CMD và chạy script
+    # cd /d "{os.getcwd()}" &&
+    # os.system(f'start cmd /k python "{script_name}"')
+    os.system(f'start cmd /k "cd /d {os.getcwd()} & python {script_name} & exit"')
 
-
-# Chạy process
-def run_process(script_name):
-    if not is_process_running(script_name):
-        return subprocess.Popen([sys.executable, script_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return None
-
-
-# Dừng process
-def kill_process(script_name):
-    for proc in psutil.process_iter(['name', 'cmdline']):
-        try:
-            if proc.info['cmdline'] and script_name in proc.info['cmdline']:
-                proc.kill()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
+    for _ in range(30):
+        time.sleep(1)  # Đợi CMD mở
+        # Tìm handle của CMD
+        hwnd = ctypes.windll.user32.FindWindowW(None, f"{window_name}")
+        if hwnd:
+            # Nhúng cửa sổ CMD vào widget container
+            ctypes.windll.user32.SetParent(hwnd, container_hwnd)
+            ctypes.windll.user32.MoveWindow(hwnd, 0, 0, window_size[0], window_size[1], True)  # Điều chỉnh kích thước CMD trong widget
+            break
 
 
 # Tạo giao diện chính
@@ -38,63 +30,88 @@ class ProcessMonitor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Process Monitor")
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(0, 0, 1200, 800)
 
         # Danh sách script
-        self.scripts = ['Price.py', 'Main.py', 'Websocket.py']
+        self.scripts = ['Price.py', 'Main.py', 'Websocket.py', "Visualizer.py"]
+        self.window_name = ['Price', 'Main', 'Websocket', "Figure 1"]
+        self.row_column_spans = [(2, 2, 1, 1), (0, 1, 1, 2), (1, 2, 1, 1), (1, 0, 2, 2)]  # Các ô trong grid
+        self.window_sizes = [(600, 300), (1200, 300), (600, 300), (1200, 600)]  # Kích thước của các widget
+        self.process_widgets = []  # Lưu các widget chứa CMD
 
         # Widget chính
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        self.layout = QVBoxLayout(self.central_widget)
+
+        # Layout chính sử dụng Grid
+        main_layout = QGridLayout(self.central_widget)
 
         # Bảng hiển thị trạng thái
         self.table = QTableWidget(len(self.scripts), 3)
         self.table.setHorizontalHeaderLabels(["Script", "Status", "Action"])
-        self.layout.addWidget(self.table)
+        self.table.setFixedSize(600, 300)
+        main_layout.addWidget(self.table, 0, 0, 1, 1)
 
-        # Nút cập nhật trạng thái
-        self.refresh_button = QPushButton("Refresh")
-        self.refresh_button.clicked.connect(self.update_status)
-        self.layout.addWidget(self.refresh_button)
-
-        # Cập nhật trạng thái định kỳ
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_status)
-        self.timer.start(1000)
+        # Thêm các ô widget chứa CMD vào grid
+        for i, script in enumerate(self.scripts):
+            widget = QWidget()
+            self.process_widgets.append(widget)
+            r, c, rs, cs = self.row_column_spans[i]
+            main_layout.addWidget(widget, r, c, rs, cs)
+            widget.setFixedSize(self.window_sizes[i][0], self.window_sizes[i][1])
 
         # Khởi tạo trạng thái ban đầu
-        self.update_status()
+        self.init_table()
 
-    def update_status(self):
+    def init_table(self):
         for row, script in enumerate(self.scripts):
             # Cột 1: Script name
             self.table.setItem(row, 0, QTableWidgetItem(script))
 
             # Cột 2: Status
-            status = "RUNNING" if is_process_running(script) else "STOPPED"
-            self.table.setItem(row, 1, QTableWidgetItem(status))
+            self.table.setItem(row, 1, QTableWidgetItem("STOPPED"))
 
             # Cột 3: Action Button
-            button = QPushButton("Stop" if status == "RUNNING" else "Start")
-            button.clicked.connect(lambda checked, s=script: self.toggle_process(s))
+            button = QPushButton("Start")
+            button.clicked.connect(lambda checked, s=script,w=self.window_name[row], r=row: self.toggle_process(s,w, r))
             self.table.setCellWidget(row, 2, button)
 
-    def toggle_process(self, script_name):
-        if is_process_running(script_name):
-            kill_process(script_name)
+    def toggle_process(self, script_name,window_name, row):
+        status_item = self.table.item(row, 1)
+        button = self.table.cellWidget(row, 2)
+
+        if status_item.text() == "STOPPED":
+            # Start process và nhúng CMD vào widget
+            start_cmd(script_name,window_name, int(self.process_widgets[row].winId()), self.window_sizes[row])
+            status_item.setText("RUNNING")
+            button.setText("Stop")
         else:
-            run_process(script_name)
-        self.update_status()
+            # Dừng process
+            self.kill_process(script_name)
+            status_item.setText("STOPPED")
+            button.setText("Start")
 
-
-# Chạy ứng dụng
-def main():
-    app = QApplication(sys.argv)
-    window = ProcessMonitor()
-    window.show()
-    sys.exit(app.exec_())
+    def kill_process(self, script_name):
+        # Dừng tất cả các process chạy script
+        import psutil
+        for proc in psutil.process_iter(['name', 'cmdline']):
+            try:
+                if proc.info['cmdline'] and script_name in proc.info['cmdline']:
+                    proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
 
 
 if __name__ == "__main__":
-    main()
+    app = QApplication(sys.argv)
+
+    extra = {
+        # Font
+        'font_family': 'Consolas',
+        'font_size': 14,
+    }
+    apply_stylesheet(app, theme='dark_yellow.xml', extra=extra)
+
+    window = ProcessMonitor()
+    window.show()
+    sys.exit(app.exec_())

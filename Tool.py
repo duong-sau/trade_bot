@@ -148,3 +148,8 @@ def get_window_klines(param):
     time_stamps = df_5min['price'].tail(limit).index.tolist()
 
     return close_prices, time_stamps
+
+import ctypes
+def set_terminal_title(title):
+    ctypes.windll.kernel32.SetConsoleTitleW(title)
+

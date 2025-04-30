@@ -6,7 +6,10 @@ import requests
 import os
 import sys
 
+from Tool import set_terminal_title
+
 if __name__ == '__main__':
+    set_terminal_title('Price')
 
     timestamp = datetime.now().strftime("%d_%m_%y-%H")
     folder_path = f'./DATA/{timestamp}' if len(sys.argv) < 2 else f'./DATA/{sys.argv[1]}'

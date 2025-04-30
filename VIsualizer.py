@@ -2,12 +2,13 @@ import threading
 import time
 from datetime import datetime
 import json
+import ctypes
 
 import numpy as np
 from matplotlib import pyplot as plt, animation
 import matplotlib.dates as mdates
 
-from Tool import get_window_klines, compute_bb_2, compute_rsi, get_data_folder_path
+from Tool import get_window_klines, compute_bb_2, compute_rsi, get_data_folder_path, set_terminal_title
 
 
 class Visualizer:
@@ -72,7 +73,7 @@ class Visualizer:
             #     x = [(datetime.fromtimestamp(first_time + (len(self.data["current"]) + i) * 300)) for i in range(len(self.data["current"]))]
             #     self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
             #     self.ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
-            x = np.arange(len(self.data["current"]))
+            x = self.x
 
             # Clear existing annotations
             for artist in self.ax.texts:
@@ -165,5 +166,13 @@ class Visualizer:
             time.sleep(0.1)
 
 if __name__ == '__main__':
+    # Hide console window
+    kernel32 = ctypes.WinDLL('kernel32')
+    user32 = ctypes.WinDLL('user32')
+    SW_HIDE = 0
+    hWnd = kernel32.GetConsoleWindow()
+    user32.ShowWindow(hWnd, SW_HIDE)
+
+    set_terminal_title("Visual")
     visualizer = Visualizer()
     visualizer.start_animation()

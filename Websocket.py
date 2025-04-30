@@ -7,9 +7,10 @@ import csv
 import os
 import signal
 
-from Tool import get_data_folder_path
+from Tool import get_data_folder_path, set_terminal_title
 
 if __name__ == '__main__':
+    set_terminal_title("Websocket")
     running = True
 
     folder_path = get_data_folder_path()

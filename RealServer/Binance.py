@@ -115,7 +115,7 @@ class BinanceServer:
     def tick(self):
         try:
             # Read CSV file
-            df = pd.read_csv('websocket.csv', names=['counter','time', 'message'])
+            df = pd.read_csv(self.websocket_file, names=['counter','time', 'message'])
             #first connect
             if self.ws_counter == -1:
                 self.ws_counter = df.iloc[-1]['counter']

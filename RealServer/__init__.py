@@ -12,7 +12,7 @@ if sys.platform == 'win32':
 time_step = 1
 
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('Ini/config.ini')
 
 mode = config['APP']['mode']
 data = config[mode]
