@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import threading
 from enum import Enum
 from queue import Queue
@@ -100,6 +101,8 @@ class BinanceTestServer:
         return self.klines_server.get_current_price()
 
     def get_current_time(self):
+        if self.test:
+            return datetime.datetime.now()
         return self.klines_server.get_current_time()
 
     def get_window_klines(self, limit):

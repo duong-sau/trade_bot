@@ -2,7 +2,7 @@ import configparser
 
 # Read parameters from config file
 config = configparser.ConfigParser()
-config.read('Ini/Alogithum.ini')
+config.read('Ini/Algorithm.ini')
 
 # Get RSI parameters
 rsi_long = config.getfloat('ALOG', 'rsi_long')
@@ -20,12 +20,13 @@ distance = config.getfloat('ALOG', 'distance')
 fibonacci_str = config.get('FIBONACCI', 'fibonacci')
 fibonacci_values = [float(x) for x in fibonacci_str.split()]
 
-config_bot = configparser.ConfigParser()
-config_bot.read('Ini/Bot.ini')
 # Get SL and TP parameters
-sl_ratio = config_bot.getfloat('BOT', 'sl')/100
-tp1_ratio = config_bot.getfloat('BOT', 'tp1')/100
-tp2_ratio = config_bot.getfloat('BOT', 'tp2')/100
+sl_ratio = config.getfloat('BOT', 'sl')/100
+tp1_ratio = config.getfloat('BOT', 'tp1')/100
+tp2_ratio = config.getfloat('BOT', 'tp2')/100
 
-n1 = config_bot.getfloat('BOT', 'n1')
-n2 = config_bot.getfloat('BOT', 'n2')
+n1 = config.getfloat('BOT', 'n1')
+n2 = config.getfloat('BOT', 'n2')
+
+
+leverage = config.getfloat('BOT', 'leverage')

@@ -6,7 +6,7 @@ import requests
 import os
 import sys
 
-from Tool import set_terminal_title
+from Tool import set_terminal_title, set_alive_counter
 
 if __name__ == '__main__':
     set_terminal_title('Price')
@@ -45,7 +45,11 @@ if __name__ == '__main__':
 
 
     # Hàm xử lý khi nhận được dữ liệu từ WebSocket
+    message_counter = 0  # Global counter
+
+
     def on_message(ws, message):
+        global message_counter
         data = json.loads(message)
         price = data['p']  # Giá giao dịch
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Thời gian hiện tại
@@ -55,6 +59,19 @@ if __name__ == '__main__':
         with open(file_path, 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([time, price])
+
+        message_counter += 1
+        if message_counter > 20000:
+            # Read all lines
+            with open(file_path, 'r') as file:
+                lines = file.readlines()
+            # Write back excluding first 1000 lines    
+            with open(file_path, 'w') as file:
+                file.writelines(lines[10000:])
+            message_counter -= 10000
+
+        if message_counter % 10 == 0:
+            set_alive_counter('price_alive.txt')
 
     # Hàm xử lý khi kết nối WebSocket
     def on_open(ws):

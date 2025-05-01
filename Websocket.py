@@ -7,7 +7,7 @@ import csv
 import os
 import signal
 
-from Tool import get_data_folder_path, set_terminal_title
+from Tool import get_data_folder_path, set_terminal_title, set_alive_counter
 
 if __name__ == '__main__':
     set_terminal_title("Websocket")
@@ -48,6 +48,23 @@ if __name__ == '__main__':
     def process_message(message):
 
         global counter
+        if 'e' in message and message['e'] == 'ORDER_TRADE_UPDATE':
+            order = message['o']
+            order_id = str(order['i'])
+            event = order['X']
+            price = order['p']
+
+            if event == "FILLED":
+                action = "FILLED"
+            elif event == "CANCELED":
+                action = "CANCELED"
+            else:
+                return
+
+            # Print and log the message
+            print(f"\033[K{counter}: {action} - Order ID: {order_id}, Price: {price}")
+        else:
+            print(f"\033[K{counter}: {str(message)[0:40]}")
         with open(os.path.join(folder_path, 'websocket.csv'), 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([counter,datetime.datetime.now(), message])
@@ -70,6 +87,7 @@ if __name__ == '__main__':
     trim_file_counter = 0
     while running:
         time.sleep(0.1)
+        set_alive_counter('websocket_alive.txt')
         step()
         trim_file_counter += 1
         if trim_file_counter == 10:

@@ -36,7 +36,7 @@ class BinanceServer:
         self.running = None
         self.sub_server = BinanceTestServer(True)
         self.websocket_thread = None
-        self.client = None
+        self.client = client
         self.ws_counter = -1
         self.ws_queue = Queue()
 
@@ -88,9 +88,9 @@ class BinanceServer:
                 order_id =   open_stop_loss(self.symbol, "LONG" if side == POSITION_SIDE.LONG else "SHORT", amount, entry)
             else:
                 assert False, "Invalid order type."
-            if order_id is None:
+            if order_id is False:
                 log_order("ERROR", self.sub_server.order_list[-1], self.sub_server.get_current_time())
-                sys.exit(1)
+                return False
             self.sub_server.order_list[-1].id = order_id # replace the order id with the one from the server
             return order_id
 
@@ -114,34 +114,36 @@ class BinanceServer:
             return []
 
     def tick(self):
-        try:
-            # Read CSV file
-            df = pd.read_csv(self.websocket_file, names=['counter','time', 'message'])
-            #first connect
-            if self.ws_counter == -1:
-                self.ws_counter = df.iloc[-1]['counter']
-                return
-            # nothing change
-            if self.ws_counter == df.iloc[-1]['counter']:
-                return
-            while True:
-                # Get messages with counter greater than current
-                new_messages = df[df['counter'] > self.ws_counter]
 
-                if new_messages.empty:
+        def get_ws_queue():
+            try:
+                # Read CSV file
+                df = pd.read_csv(self.websocket_file, names=['counter','time', 'message'])
+                #first connect
+                if self.ws_counter == -1:
+                    self.ws_counter = df.iloc[-1]['counter']
+                    return
+                # nothing change
+                if self.ws_counter == df.iloc[-1]['counter']:
+                    return
+                while True:
+                    # Get messages with counter greater than current
+                    new_messages = df[df['counter'] > self.ws_counter]
+
+                    if new_messages.empty:
+                        break
+
+                    # Process each new message
+                    for _, row in new_messages.iterrows():
+                        message = eval(row['message'])
+                        self.process_message(message)
+                        self.ws_counter = row['counter']
                     break
 
-                # Process each new message
-                for _, row in new_messages.iterrows():
-                    message = eval(row['message'])
-                    self.process_message(message)
-                    self.ws_counter = row['counter']
-                break
-
-        except Exception as e:
-            log_error()
-
+            except Exception as e:
+                log_error()
         self.sub_server.tick()
+        get_ws_queue()
         return
 
     def get_total(self):
@@ -149,3 +151,6 @@ class BinanceServer:
 
     def get_current_time(self):
         return datetime.now()
+
+    def set_leverage(self, leverage):
+        self.client.setLeverage(symbol=self.symbol, leverage=int(leverage))

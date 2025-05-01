@@ -1,58 +1,88 @@
+import subprocess
+from subprocess import run, Popen
 import sys
 import os
 import time
 import ctypes
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QTableWidget, \
-    QTableWidgetItem, QGridLayout
-from qt_material import apply_stylesheet
+import threading
+from datetime import datetime
+import Config
 
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QTableWidget, \
+    QTableWidgetItem, QGridLayout, QTextEdit
+from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt, QTimer
+from qt_material import apply_stylesheet
+from functools import partial
 
 # Hàm khởi chạy CMD và lấy handle
 def start_cmd(script_name, window_name, container_hwnd, window_size):
-    # Mở CMD và chạy script
-    # cd /d "{os.getcwd()}" &&
-    # os.system(f'start cmd /k python "{script_name}"')
-    os.system(f'start cmd /k "cd /d {os.getcwd()} & {script_name} & exit"')
+    os.system(script_name)
 
     for _ in range(30):
-        time.sleep(1)  # Đợi CMD mở
-        # Tìm handle của CMD
+        time.sleep(1)
         hwnd = ctypes.windll.user32.FindWindowW(None, f"{window_name}")
         if hwnd:
-            # Nhúng cửa sổ CMD vào widget container
             ctypes.windll.user32.SetParent(hwnd, container_hwnd)
-            ctypes.windll.user32.MoveWindow(hwnd, 0, 0, window_size[0], window_size[1], True)  # Điều chỉnh kích thước CMD trong widget
+            ctypes.windll.user32.MoveWindow(hwnd, 0, 0, window_size[0], window_size[1], True)
             break
 
 
-# Tạo giao diện chính
+def is_window_running(window_name):
+    return ctypes.windll.user32.FindWindowW(None, window_name) != 0
+
+
 class ProcessMonitor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Process Monitor")
-        self.setGeometry(0, 0, 1200, 800)
+        self.setGeometry(0, 0, 1200, 1000)
 
-        # Danh sách script
-        self.scripts = ['python Price.py', 'python Main.py', 'python Websocket.py', "pythonw Visualizer.py"]
-        self.window_name = ['Price', 'Main', 'Websocket', "Figure 1"]
-        self.row_column_spans = [(2, 2, 1, 1), (0, 1, 1, 2), (1, 2, 1, 1), (1, 0, 2, 2)]  # Các ô trong grid
-        self.window_sizes = [(600, 300), (1200, 300), (600, 300), (1200, 600)]  # Kích thước của các widget
-        self.process_widgets = []  # Lưu các widget chứa CMD
+        self.data_folder =f"{time.strftime('%d_%m_%y-%H')}"
+        os.makedirs(self.data_folder, exist_ok=True)
 
-        # Widget chính
+        self.alive_files = ['price_alive.txt', 'websocket_alive.txt', 'visualizer_alive.txt', 'main_alive.txt']
+        self.last_alive = [0] * len(self.alive_files)
+        self.alive_time = [datetime.now()] * len(self.alive_files)
+        self.script_names = ["Price", "Websocket", "Visualizer", "Main"]
+        # f'start cmd /k "cd /d {os.getcwd()} & {script_name} & exit"'
+        self.scripts = [f'start cmd /k python Price.py {self.data_folder}',
+                        f'start cmd /k python Websocket.py {self.data_folder}',
+                        f"start pythonw Visualizer.py {self.data_folder}",
+                        f'start cmd /k python Main.py {self.data_folder}'
+                        ]
+        self.window_name = ['Price', 'Websocket', "Figure 1", 'Main']
+        self.row_column_spans = [(2, 2, 1, 1), (1, 2, 1, 1), (1, 0, 2, 2), (0, 1, 1, 2)]
+        self.window_sizes = [(600, 300), (600, 300), (1200, 600), (1200, 300)]
+        self.process_widgets = []
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
-        # Layout chính sử dụng Grid
         main_layout = QGridLayout(self.central_widget)
 
-        # Bảng hiển thị trạng thái
+        h_widget = QWidget()
+        h_layout = QGridLayout(h_widget)
+        h_widget.setFixedSize(600, 300)
+        main_layout.addWidget(h_widget, 0, 0, 1, 1)
+
         self.table = QTableWidget(len(self.scripts), 3)
         self.table.setHorizontalHeaderLabels(["Script", "Status", "Action"])
-        self.table.setFixedSize(600, 300)
-        main_layout.addWidget(self.table, 0, 0, 1, 1)
+        self.table.setColumnWidth(0, 120)
+        self.table.setFixedSize(400, 200)
+        h_layout.addWidget(self.table, 0, 0, 2, 2)
 
-        # Thêm các ô widget chứa CMD vào grid
+        self.config_text = QTextEdit()
+        self.config_text.setReadOnly(True)
+        self.config_text.setFixedSize(200, 250)
+        self.update_config_display()
+        h_layout.addWidget(self.config_text, 0, 2, 3, 1)
+
+        # Add button to open config file
+        open_config_btn = QPushButton("Open Config")
+        open_config_btn.clicked.connect(self.open_config_file)
+        h_layout.addWidget(open_config_btn, 2, 0, 1, 1)
+
         for i, script in enumerate(self.scripts):
             widget = QWidget()
             self.process_widgets.append(widget)
@@ -60,39 +90,44 @@ class ProcessMonitor(QMainWindow):
             main_layout.addWidget(widget, r, c, rs, cs)
             widget.setFixedSize(self.window_sizes[i][0], self.window_sizes[i][1])
 
-        # Khởi tạo trạng thái ban đầu
         self.init_table()
+
+        self.monitoring = True
+        self.monitor_thread = threading.Thread(target=self.check_processes)
+        self.monitor_thread.daemon = True
+        self.monitor_thread.start()
 
     def init_table(self):
         for row, script in enumerate(self.scripts):
-            # Cột 1: Script name
-            self.table.setItem(row, 0, QTableWidgetItem(script))
+            self.table.setItem(row, 0, QTableWidgetItem(self.script_names[row]))
 
-            # Cột 2: Status
-            self.table.setItem(row, 1, QTableWidgetItem("STOPPED"))
+            status_button = QPushButton("STOPPED")
+            status_button.setStyleSheet("background-color: red; color: white")
+            status_button.setEnabled(False)
+            self.table.setCellWidget(row, 1, status_button)
 
-            # Cột 3: Action Button
             button = QPushButton("Start")
-            button.clicked.connect(lambda checked, s=script,w=self.window_name[row], r=row: self.toggle_process(s,w, r))
+            button.clicked.connect(partial(self.toggle_process, script, self.window_name[row], row))
             self.table.setCellWidget(row, 2, button)
 
-    def toggle_process(self, script_name,window_name, row):
-        status_item = self.table.item(row, 1)
+    def toggle_process(self, script_name, window_name, row):
+        status_button = self.table.cellWidget(row, 1)
         button = self.table.cellWidget(row, 2)
 
-        if status_item.text() == "STOPPED":
-            # Start process và nhúng CMD vào widget
-            start_cmd(script_name,window_name, int(self.process_widgets[row].winId()), self.window_sizes[row])
-            status_item.setText("RUNNING")
+        if status_button.text() == "STOPPED":
+            start_cmd(script_name, window_name, int(self.process_widgets[row].winId()), self.window_sizes[row])
+            status_button.setText("RUNNING")
+            status_button.setStyleSheet("background-color: green; color: white")
+            self.start_blinking(status_button)
             button.setText("Stop")
         else:
-            # Dừng process
             self.kill_process(script_name)
-            status_item.setText("STOPPED")
+            status_button.setText("STOPPED")
+            status_button.setStyleSheet("background-color: red; color: white")
+            self.stop_blinking(status_button)
             button.setText("Start")
 
     def kill_process(self, script_name):
-        # Dừng tất cả các process chạy script
         import psutil
         for proc in psutil.process_iter(['name', 'cmdline']):
             try:
@@ -101,12 +136,91 @@ class ProcessMonitor(QMainWindow):
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 pass
 
+    def start_blinking(self, button):
+        timer = QTimer(button)
+        timer.timeout.connect(lambda: self.toggle_blink(button))
+        timer.start(500)
+        button.blink_timer = timer
+        button.blink_state = True
+
+    def stop_blinking(self, button):
+        if hasattr(button, 'blink_timer'):
+            button.blink_timer.stop()
+            del button.blink_timer
+            button.setStyleSheet("background-color: red; color: white")
+
+    def update_config_display(self):
+        config_text = f"""Configuration Settings:
+    Margin: {Config.leverage}
+    BB std: {Config.bb_stddev}
+    RSI Period: {Config.rsi_period}
+    RSI Long > {int(Config.rsi_long)}
+    RSI Short < {int(Config.rsi_short)}
+    Distance: {Config.distance}
+    N1: {Config.n1}
+    N2: {Config.n2}
+    SL: {Config.sl_ratio}
+    TP1: {Config.tp1_ratio}
+    TP2: {Config.tp2_ratio}"""
+
+        self.config_text.setText(config_text)
+
+    def toggle_blink(self, button):
+        if button.blink_state:
+            button.setStyleSheet("background-color: darkgreen; color: white")
+        else:
+            button.setStyleSheet("background-color: green; color: white")
+        button.blink_state = not button.blink_state
+
+    def open_config_file(self):
+        subprocess.run(['notepad.exe', 'Ini/Algorithm.ini'])
+        self.update_config_display()
+
+    def check_processes(self):
+
+        while self.monitoring:
+            for row, script in enumerate(self.scripts):
+                status_button = self.table.cellWidget(row, 1)
+                action_button = self.table.cellWidget(row, 2)
+
+                alive_file = os.path.join("Data/" + self.data_folder, self.alive_files[row])
+
+                if not os.path.exists(alive_file):
+                    continue
+                current_time = datetime.now()
+                try:
+                    with open(alive_file, 'r') as f:
+                        counter = int(f.read().strip())
+                        if counter == self.last_alive[row]:
+                            if (current_time - self.alive_time[row]).seconds > 2:
+                                found = False
+                            else:
+                                found = True
+                        else:
+                            self.last_alive[row] = counter
+                            self.alive_time[row] = current_time
+                            found = True
+                except:
+                    found = False
+                if found:
+                    if status_button.text() != "RUNNING":
+                        status_button.setText("RUNNING")
+                        status_button.setStyleSheet("background-color: green; color: white")
+                        self.start_blinking(status_button)
+                        action_button.setText("Stop")
+                else:
+                    if status_button.text() != "STOPPED":
+                        status_button.setText("STOPPED")
+                        self.stop_blinking(status_button)
+                        status_button.setStyleSheet("background-color: red; color: white")
+                        action_button.setText("Start")
+
+            time.sleep(0.2)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     extra = {
-        # Font
         'font_family': 'Consolas',
         'font_size': 14,
     }

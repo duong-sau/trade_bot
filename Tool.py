@@ -90,13 +90,13 @@ def calculate_points(lower, upper, ma, current):
     S0 = upper
     S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
     S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
-    # L0 = current
-    # L1 = current - 50
-    # L2 = current - 100
+    # L0 = current - 20
+    # L1 = current - 100
+    # L2 = current - 200
     #
-    # S0 = current
-    # S1 = current + 50
-    # S2 = current + 100
+    # S0 = current + 20
+    # S1 = current + 100
+    # S2 = current + 200
 
     return (L0, L1, L2), (S0, S1, S2)
 
@@ -114,13 +114,40 @@ def log_order(action, order, server_time):
         order_text = "___SL"
     else:
         assert False
-    log_text = f"{server_time}\taction: {action}\tside: {side_text}\ttype: {order_text}\tamount: {order.amount:.6f}\tprice: {order.trigger_price:.6f}\tid: {order.id}"
+
+    # Move cursor up one line and clear it before printing
+    plain_text = f"{server_time} -- {action} -- {side_text} -- {order_text} -- {order.amount:.4f} -- {order.trigger_price:.2f} -- id: {str(order.id)[:10]}"
+
+    if action == "FILLED":
+        if order.type == ORDER_TYPE.LIMIT:
+            log_text = f"\033[93m{plain_text}\033[0m"  # Yellow
+        elif order.type == ORDER_TYPE.TP:
+            log_text = f"\033[92m{plain_text}\033[0m"  # Green
+        elif order.type == ORDER_TYPE.SL:
+            log_text = f"\033[91m{plain_text}\033[0m"  # Red
+    else:
+        log_text = plain_text
+
+    log_text = f"\033[K\033[K{log_text}  |"  # Clear line before printing
+
+    tqdm.write(log_text)
+
+    # Write to CSV file in append mode
+    # systemlog_path = os.path.join(get_data_folder_path(), 'systemlog.csv')
+    # with open(systemlog_path, 'a', newline='') as csvfile:
+    #     csvfile.write(plain_text + '\n')
+
+
+def log_action(action, server_time):
+    log_text = f"\033[K\033[K\033[93m{server_time} -- {action}\033[0m"  # Yellow color with line clear
     tqdm.write(log_text)
 
     # Write to CSV file in append mode
     systemlog_path = os.path.join(get_data_folder_path(), 'systemlog.csv')
-    with open(systemlog_path, 'a', newline='') as csvfile:
-        csvfile.write(log_text + '\n')
+    # with open(systemlog_path, 'a', newline='') as csvfile:
+    #     # Remove ANSI color codes when writing to file
+    #     plain_text = f"{server_time} -- {action}"
+    #     csvfile.write(plain_text + '\n')
 
 
 def get_data_folder_path():
@@ -144,8 +171,8 @@ def get_window_klines(param):
 
     # Get last param (or 20 if param is None) prices
     limit = param if param else 20
-    close_prices = df_5min['price'].tail(limit).tolist()
-    time_stamps = df_5min['price'].tail(limit).index.tolist()
+    close_prices = df_5min['price'].tail(limit).tolist()[:-1] + [df['price'].iloc[-1]]
+    time_stamps = df_5min['price'].tail(limit).index.tolist()[:-1] + [df.index[-1]]
 
     return close_prices, time_stamps
 
@@ -153,3 +180,18 @@ import ctypes
 def set_terminal_title(title):
     ctypes.windll.kernel32.SetConsoleTitleW(title)
 
+alive_counter = 0
+data_folder_path = get_data_folder_path()
+def set_alive_counter(file_name):
+    global  alive_counter
+    alive_counter += 1
+    if alive_counter > 10:
+        alive_counter = 0
+
+    # Get the folder path
+    global data_folder_path
+    file_path = os.path.join(data_folder_path, file_name)
+
+    # Write the counter to the file
+    with open(file_path, 'w') as file:
+        file.write(str(alive_counter))

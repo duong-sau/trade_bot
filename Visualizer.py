@@ -3,22 +3,26 @@ import time
 from datetime import datetime
 import json
 import ctypes
-
+import pandas as pd
 import numpy as np
+import pandas_ta as ta
 from matplotlib import pyplot as plt, animation
 import matplotlib.dates as mdates
 
-from Tool import get_window_klines, compute_bb_2, compute_rsi, get_data_folder_path, set_terminal_title
+from Config import rsi_period, bb_period, bb_stddev
+from Tool import get_window_klines, compute_bb_2, compute_rsi, get_data_folder_path, set_terminal_title, \
+    set_alive_counter
 
 
 class Visualizer:
 
-    MAX_COLUMNS = 120
+    MAX_COLUMNS = 60
 
     def __init__(self):
 
         self.data_file = get_data_folder_path() + '/visualize.json'
 
+        self.get_klines()
         self.tick = 0
         self.trade_lines = []
         self.trades =  []
@@ -31,22 +35,15 @@ class Visualizer:
         }
         self.ax.legend()
         self.ax.set_title("Real-time Visualization")
-        self.ax.set_xlim(0, 100)
-        self.ax.set_ylim(90000, 10000)
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        self.fig.autofmt_xdate()
+        self.ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+
+        self.ax.set_ylim(10000, 90000)
 
         self.distance = 0
         self.rsi = 0
         self.ma = 0
-
-        data, times = get_window_klines(self.MAX_COLUMNS)
-        self.x = times
-        current, upper, lower, distant, ma = compute_bb_2(data)
-
-        self.data = {
-            "current":[current] * self.MAX_COLUMNS,
-            "upper": [upper] * self.MAX_COLUMNS,
-            "lower": [lower] * self.MAX_COLUMNS,
-        }
 
         self.trades = []  # List trades lấy từ server
         self.dcas = []  # List DCA orders
@@ -60,20 +57,11 @@ class Visualizer:
         threading.Thread(target=self.read_data_run, daemon=True).start()
 
     def _animate(self, frame):
+
+        set_alive_counter('visualizer_alive.txt')
+
         with self.lock:
-            # if self.last_time is None:
-            #     x = np.arange(len(self.data["current"]))
-            # else:
-            #     timestamp = datetime.strptime(self.last_time, '%m/%d/%Y, %H:%M:%S').timestamp()
-            #
-            #     # Round timestamp down to nearest 5 minute interval
-            #     first_time = int(timestamp - (timestamp % 300))
-            #     first_time = first_time - len(self.data["current"]) * 300
-            #
-            #     x = [(datetime.fromtimestamp(first_time + (len(self.data["current"]) + i) * 300)) for i in range(len(self.data["current"]))]
-            #     self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-            #     self.ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=5))
-            x = np.arange(len(self.data["current"]))
+            x = self.x
 
             # Clear existing annotations
             for artist in self.ax.texts:
@@ -97,11 +85,11 @@ class Visualizer:
                 )
 
             if len(x) > 0:
-                self.ax.set_xlim(max(0, len(x) - self.MAX_COLUMNS), len(x))
+                self.ax.set_xlim(self.x[0], self.x[-1])
 
                 upper = max(self.data["upper"]) if self.data["upper"] else 1
                 lower = min(self.data["lower"]) if self.data["lower"] else 0
-                margin = (upper - lower) * 4
+                margin = (upper - lower) * 0.3
                 self.ax.set_ylim(lower - margin, upper + margin)
                 # self.ax.set_ylim(self.data["current"][-1] - 200, self.data["current"][-1] + 200)
 
@@ -132,19 +120,25 @@ class Visualizer:
 
 
     def get_klines(self):
-        data, times = get_window_klines(self.MAX_COLUMNS)
-        self.data["current"] = data
-        self.x = times
-        current, upper, lower, distant, ma = compute_bb_2(data)
+        data, times = get_window_klines(self.MAX_COLUMNS + bb_period )
+        # self.x =pd.DatetimeIndex(times[:self.MAX_COLUMNS])  # Chỉ lấy MAX_COLUMNS gần nhất
+        self.x = pd.to_datetime(times[bb_period:self.MAX_COLUMNS + bb_period])
+        #
+
+        df = pd.DataFrame()
+        df['close'] = data
+
+        df.ta.bbands(length=bb_period, std=bb_stddev,append=True)
+        self.data = {
+            "current": data[bb_period:self.MAX_COLUMNS + bb_period],
+            "upper": df[f'BBU_20_{float(bb_stddev):.1f}'].tolist()[bb_period:self.MAX_COLUMNS + bb_period],
+            "lower": df[f'BBL_20_{float(bb_stddev):.1f}'].tolist()[bb_period:self.MAX_COLUMNS + bb_period],
+        }
+
         rsi = compute_rsi(data)
-        if len(self.data["upper"]) >= self.MAX_COLUMNS:
-            self.data["upper"].pop(0)
-            self.data["lower"].pop(0)
-        self.data["upper"].append(upper)
-        self.data["lower"].append(lower)
         self.rsi = rsi
-        self.distance = distant
-        self.ma = ma
+        self.distance = self.data["upper"][-1] - self.data["lower"][-1]
+        self.ma = df[f'BBM_20_{float(bb_stddev):.1f}'].tolist()[bb_period:self.MAX_COLUMNS+ bb_period][-1]
 
     def read_trades_dcas(self):
         try:
