@@ -17,8 +17,7 @@ def open_limit(symbol, side, amount, price):
                                    type="limit",
                                    side="BUY" if side == "LONG" else "SELL",
                                    amount=amount,
-                                   price=price,
-                                   params={"positionSide": side}
+                                   price=price
                                 )
         return order['id']
     except:
@@ -29,12 +28,10 @@ def open_take_profit(symbol,side, quantity, price):
     try:
         order = client.createOrder(symbol=symbol,
                                    type="market",
-                                   side="SELL" if side== "LONG" else "BUY",
+                                   side="SELL" if side == "LONG" else "BUY",
                                    amount=quantity,
                                    price=price,
-                                   params={
-                                    "takeProfitPrice": price,
-                                    "positionSide": side})
+                                   params={"takeProfitPrice": price})
         return order['id']
     except Exception as e:
         log_error()
@@ -44,10 +41,10 @@ def open_stop_loss(symbol, side, quantity, price):
     try:
         order = client.createOrder(symbol=symbol,
                                               type="market",
-                                              side="SELL" if side== "LONG" else "BUY",
+                                            side="SELL" if side == "LONG" else "BUY",
                                               amount=quantity,
                                               price=price,
-                                              params={"stopLossPrice": price, "positionSide": side})
+                                              params={"stopLossPrice": price})
         return order['id']
     except Exception as e:
         log_error()
