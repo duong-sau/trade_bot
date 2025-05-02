@@ -61,3 +61,10 @@ class Position:
     def update_tp_sl(self, tp, sl):
         self.tp = tp
         self.sl = sl
+
+    def reset(self):
+        self.tp = 0
+        self.sl = 0
+        self.entry = 0
+        self.side = POSITION_SIDE.NONE
+        self.volume = 0

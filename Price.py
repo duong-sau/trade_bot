@@ -1,3 +1,6 @@
+import signal
+import time
+
 import websocket
 import json
 import csv
@@ -6,7 +9,10 @@ import requests
 import os
 import sys
 
-from Tool import set_terminal_title, set_alive_counter
+from binance import ThreadedWebsocketManager
+
+from RealServer import testnet
+from Tool import set_terminal_title, set_alive_counter, read_alive_cmd, ALIVE_CMD
 
 if __name__ == '__main__':
     set_terminal_title('Price')
@@ -48,9 +54,9 @@ if __name__ == '__main__':
     message_counter = 0  # Global counter
 
 
-    def on_message(ws, message):
+    def on_message(message):
         global message_counter
-        data = json.loads(message)
+        data = message['data']
         price = data['p']  # Giá giao dịch
         time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Thời gian hiện tại
         print(f"Time: {time}, Price: {price}")
@@ -70,30 +76,28 @@ if __name__ == '__main__':
                 file.writelines(lines[10000:])
             message_counter -= 10000
 
-        if message_counter % 10 == 0:
-            set_alive_counter('price_alive.txt')
+    web_socket = ThreadedWebsocketManager(
+        testnet=testnet)
+    web_socket.start()
+    print('Websocket reconnected')
+    web_socket.start_symbol_mark_price_socket(symbol="BTCUSDT", callback=on_message)
 
-    # Hàm xử lý khi kết nối WebSocket
-    def on_open(ws):
-        print("WebSocket connected")
-        # Gửi yêu cầu đăng ký nhận dữ liệu giá
-        payload = {
-            "method": "SUBSCRIBE",
-            "params": [
-                "btcusdt@trade"  # Nhận giao dịch future BTC/USDT từ testnet
-            ],
-            "id": 1
-        }
-        ws.send(json.dumps(payload))
+    def stop():
+        web_socket.stop()
+        sys.exit(0)
 
-    # Hàm xử lý khi WebSocket đóng kết nối
-    def on_close(ws):
-        print("WebSocket closed")
+    def signal_handler(sig, frame):
+        print("\nProgram terminated by user (Ctrl + C)")
+        stop()
 
-    # Kết nối WebSocket
-    url = "wss://stream.binancefuture.com/ws"  # URL cho Binance Futures WebSocket Testnet
-    ws = websocket.WebSocketApp(url, on_message=on_message, on_open=on_open, on_close=on_close)
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     print("Historical data loaded, starting real-time updates...")
-    # Chạy WebSocket
-    ws.run_forever()
+    # chạy while true nếu đọc file được STOP thì dừng chương trình
+    while True:
+        set_alive_counter('price_alive.txt')
+        run = read_alive_cmd('PRICE')
+        if run == ALIVE_CMD.STOP:
+            stop()
+        time.sleep(1)

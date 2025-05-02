@@ -14,7 +14,7 @@ from RealServer.Common import force_stop_loss
 # from RealServer.DCA import DCAServer
 from Server.DCA import DCAServer, TRADE_STEP
 from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, set_terminal_title, log_action, \
-    set_alive_counter
+    set_alive_counter, read_alive_cmd, ALIVE_CMD
 
 
 class TradingSystem:
@@ -26,6 +26,8 @@ class TradingSystem:
 
         # đặt margin
         self.dca_server.binance_server.set_leverage(Config.leverage)
+
+        self.dca_server.binance_server.pre_check()
 
 
     def clearVisualizeFile(self):
@@ -48,7 +50,9 @@ class TradingSystem:
                 self.main_run()
                 self.visualize_run()
                 step()
-
+                run = read_alive_cmd("MAIN")
+                if run == ALIVE_CMD.STOP:
+                    exit(0)
             except KeyboardInterrupt:
                 self.cleanup_handler(None, None)
             except Exception as e:
@@ -67,21 +71,21 @@ class TradingSystem:
             # Xử lý lệnh Long
             if rsi <= Config.rsi_long:
                 if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Long nào được khớp
-                    log_action(f"OPEN LONG -- RSI: {rsi} < LONG RSI {Config.rsi_long}", self.dca_server.binance_server.get_current_time())
-                    self.dca_server.put_long(L_point, 2, [Config.n1, Config.n2])
+                    log_action(f"OPEN LONG -- RSI: {rsi} < LONG RSI {Config.rsi_long}  DISTANCE: {distant}", self.dca_server.binance_server.get_current_time())
+                    self.dca_server.put_long(L_point,  [Config.n1, Config.n2])
 
             # Xử lý lệnh Short
             if rsi >= Config.rsi_short:
                 if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Short nào được khớp
-                    log_action(f"OPEN SHORT -- RSI: {rsi} > SHORT RSI {Config.rsi_short}", self.dca_server.binance_server.get_current_time())
-                    self.dca_server.put_short(S_point, 2, [Config.n1, Config.n2])
+                    log_action(f"OPEN SHORT -- RSI: {rsi} > SHORT RSI {Config.rsi_short}  DISTANCE: {distant}", self.dca_server.binance_server.get_current_time())
+                    self.dca_server.put_short(S_point,  [Config.n1, Config.n2])
 
         # Sau 5 phut
         if self.dca_server.get_dac_num() > 0:
             if self.dca_server.get_trade_step() == TRADE_STEP.NONE:
                 if self.dca_server.get_alive_time() is None:
                   return
-                elif self.dca_server.get_alive_time() > datetime.timedelta(minutes=5):
+                elif self.dca_server.get_alive_time() > datetime.timedelta(minutes=Config.limit_timeout):
                     log_action(f"CANCEL POSITION TIME OUT ------------------------------", self.dca_server.binance_server.get_current_time())
                     if not self.dca_server.cancel_by_timeout():
                         return
@@ -90,7 +94,8 @@ class TradingSystem:
             if self.dca_server.get_trade_step() == TRADE_STEP.LIMIT2_FILLED:
                 if self.dca_server.get_limit2_filled_time() is None:
                   return
-                elif self.dca_server.get_limit2_filled_time() > datetime.timedelta(minutes=5):
+                elif (self.dca_server.get_limit2_filled_time() > datetime.timedelta(minutes=Config.tp_decrease_time)
+                      and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min)/100):
                     log_action(f"DECREASE TP TIME OUT ------------------------------", self.dca_server.binance_server.get_current_time())
                     if not self.dca_server.decrease_tp():
                         return

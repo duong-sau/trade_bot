@@ -1,53 +1,33 @@
 import math
 import os
 import sys
-
+from enum import Enum
+import pandas_ta as ta
 import pandas as pd
 from tqdm import tqdm
-import csv
+from Config import bb_period, bb_stddev
+from Server.Binance.Types.Order import ORDER_SIDE, ORDER_TYPE
 from datetime import datetime
 
-from Server.Binance.Types.Order import ORDER_SIDE, ORDER_TYPE
-import pandas as pd
-from datetime import datetime
+from Server.Binance.Types.Position import POSITION_SIDE
+
 
 # Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands
 def compute_bb_2(input_data):
-    window_size = 20
-    stddev_factor = 3
 
-    # Lấy giá trị cửa sổ dữ liệu gần nhất (từ cuối mảng)
-    if len(input_data) < window_size:
-        raise ValueError("Input data length must be at least the size of the window")
+    df = pd.DataFrame()
+    df['close'] = input_data
 
-    window_data = input_data[-window_size:]
-
-    # Tính trung bình động (MA)
-    ma = sum(window_data) / window_size
-
-    # Tính độ lệch chuẩn (stddev)
-    variance = sum((x - ma) ** 2 for x in window_data) / window_size
-    stddev = math.sqrt(variance)
-
-    # Tính Upper, Lower và Distant
-    upper = ma + stddev_factor * stddev
-    lower = ma - stddev_factor * stddev
-    distant = upper - lower
-
-    # Trả về các giá trị cuối cùng
-    return input_data[-1], upper, lower, distant, ma
-
-    # Tính MA và độ lệch chuẩn
-    ma = sum(window_data) / window_size
-    variance = sum((x - ma) ** 2 for x in window_data) / window_size
-    stddev = math.sqrt(variance)
+    df.ta.bbands(length=bb_period, std=bb_stddev, append=True)
 
     # Tính khoảng cách (distant)
-    upper = ma + stddev_factor * stddev
-    lower = ma - stddev_factor * stddev
+    upper =  df[f'BBU_20_{float(bb_stddev):.1f}'].tolist()[-1]
+    lower = df[f'BBL_20_{float(bb_stddev):.1f}'].tolist()[-1]
+    ma  = df[f'BBM_20_{float(bb_stddev):.1f}'].tolist()[-1]
+
     distant = upper - lower
 
-    return distant
+    return input_data[-1], upper, lower,  distant, ma
 
 # Hàm tính RSI
 def compute_rsi(data, period=14):
@@ -82,26 +62,26 @@ def compute_rsi(data, period=14):
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
     # Long Points (L0, L1, L2)
-    L0 = lower
-    L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
-    L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
+   # L0 = lower
+   # L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
+   # L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
 
-    # Short Points (S0, S1, S2)
-    S0 = upper
-    S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
-    S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
-    # L0 = current - 20
-    # L1 = current - 100
-    # L2 = current - 200
+   # # Short Points (S0, S1, S2)
+   # S0 = upper
+   # S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
+   # S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
+    L0 = current - 10
+    L1 = current - 20
+    L2 = current - 200
     #
-    # S0 = current + 20
-    # S1 = current + 100
-    # S2 = current + 200
+    S0 = current + 10
+    S1 = current + 20
+    S2 = current + 200
 
     return (L0, L1, L2), (S0, S1, S2)
 
 def log_order(action, order, server_time):
-    if order.side == ORDER_SIDE.LONG:
+    if order.side == POSITION_SIDE.LONG:
         side_text = "LONG"
     else:
         side_text = "SHORT"
@@ -195,3 +175,40 @@ def set_alive_counter(file_name):
     # Write the counter to the file
     with open(file_path, 'w') as file:
         file.write(str(alive_counter))
+
+class ALIVE_CMD(Enum):
+    RUN = "RUN"
+    STOP = "STOP"
+def read_alive_cmd(process_name):
+    with open(os.path.join(data_folder_path, 'alive_cmd.txt'), 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            process, status = line.strip().split(": ")
+            if process != process_name:
+                continue
+            if status == ALIVE_CMD.STOP.value:
+                return ALIVE_CMD.STOP
+        return ALIVE_CMD.RUN
+def write_alive_cmd(proc_name, cmd):
+
+    if not os.path.exists(os.path.join(data_folder_path, 'alive_cmd.txt')):
+        file = open(os.path.join(data_folder_path, 'alive_cmd.txt'), 'w')
+        file.close()
+
+    lines = []
+    with open(os.path.join(data_folder_path, 'alive_cmd.txt'), 'r') as file:
+        lines = file.readlines()
+
+    with open(os.path.join(get_data_folder_path(), 'alive_cmd.txt'), 'w') as file:
+        found = False
+        for line in lines:
+            if line.strip() == "":
+                continue
+            process, status = line.strip().split(": ")
+            if process != proc_name:
+                file.write(line.strip() + "\n")
+                continue
+            file.write(f"{process}: {cmd.value}\n")
+            found = True
+        if not found:
+            file.write(f"{proc_name}: {cmd.value}\n")

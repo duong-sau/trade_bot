@@ -6,12 +6,13 @@ from queue import Queue
 import ccxt
 import pandas as pd
 
+import Config
 from RealServer import api_key, api_secret, testnet
-from RealServer.Common import open_limit, open_take_profit, cancel_order, open_stop_loss, SetClient
+from RealServer.Common import open_limit, open_take_profit, cancel_order, open_stop_loss, SetClient, force_stop_loss
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION, ServerOrderMessage
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
-from Tool import log_order, get_window_klines, get_data_folder_path
+from Tool import log_order, get_window_klines, get_data_folder_path, log_action
 from logger import print_log_error, log_error
 
 
@@ -80,6 +81,7 @@ class BinanceServer:
         """Opens a new order."""
         with self.sub_server.lock:
             self.sub_server.open_order(order_type, side, amount, entry, reduce_only)
+
             if order_type == ORDER_TYPE.LIMIT:
                 order_id =  open_limit(self.symbol, "LONG" if side == POSITION_SIDE.LONG else "SHORT", amount, entry)
             elif order_type == ORDER_TYPE.TP:
@@ -89,8 +91,13 @@ class BinanceServer:
             else:
                 assert False, "Invalid order type."
             if order_id is False:
+                force_stop_loss(self.symbol)
                 log_order("ERROR", self.sub_server.order_list[-1], self.sub_server.get_current_time())
+                self.sub_server.order_list = []
+                self.sub_server.position.reset()
                 return False
+
+
             self.sub_server.order_list[-1].id = order_id # replace the order id with the one from the server
             return order_id
 
@@ -154,3 +161,18 @@ class BinanceServer:
 
     def set_leverage(self, leverage):
         self.client.setLeverage(symbol=self.symbol, leverage=int(leverage))
+
+    def pre_check(self):
+        positions = self.client.fetch_positions()
+        if positions:
+            log_action("---  PLEASE CLOSE ALL OPENED POSITION BEFORE START MAIN  ---", self.get_current_time())
+            sys.exit(0)
+        orders = self.client.fetch_open_orders(symbol=self.symbol)
+        if orders:
+            log_action("---  PLEASE CLOSE ALL OPENED ORDERS BEFORE START MAIN  ---", self.get_current_time())
+            sys.exit(0)
+
+        balance = self.client.fetch_balance()
+        if float(balance['info']['totalMarginBalance'])* Config.leverage / 90000 <  (Config.n1 + Config.n2):
+            log_action("---  PLEASE ADD BALANCE USDT BEFORE START MAIN  ---", self.get_current_time())
+            sys.exit(0)

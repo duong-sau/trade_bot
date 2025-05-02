@@ -1,6 +1,6 @@
+import datetime
 from enum import Enum
 import uuid
-
 
 class ORDER_TYPE(Enum):
     LIMIT = 1
@@ -14,6 +14,11 @@ class ORDER_SIDE(Enum):
     NONE = 0
     SHORT = -1
 
+class ORDER_STATUS(Enum):
+    PUSHED = 0
+    FILLED = 1
+    CANCELLED = 2
+
 class Order:
     """
     Order is a class that handles the order management.
@@ -21,12 +26,16 @@ class Order:
     """
     def __init__(self, order_type, side, amount, trigger_price, reduce_only=False):
 
+
         self.type = order_type
         self.side = side
         self.amount = amount
         self.trigger_price = trigger_price
         self.reduce_only = reduce_only
         self.id = str(uuid.uuid4())
+
+        self.filled_time = None
+        self.status = ORDER_STATUS.PUSHED
 
     def destroy(self):
         pass
@@ -57,3 +66,10 @@ class Order:
                 if current >= self.trigger_price:
                     return True
         return False
+
+    def handel_filled(self):
+        self.filled_time = datetime.datetime.now()
+        self.status = ORDER_STATUS.FILLED
+
+    def handel_canceled(self):
+        self.status = ORDER_STATUS.CANCELLED

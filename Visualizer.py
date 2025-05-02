@@ -11,7 +11,7 @@ import matplotlib.dates as mdates
 
 from Config import rsi_period, bb_period, bb_stddev
 from Tool import get_window_klines, compute_bb_2, compute_rsi, get_data_folder_path, set_terminal_title, \
-    set_alive_counter
+    set_alive_counter, read_alive_cmd, ALIVE_CMD
 
 
 class Visualizer:
@@ -20,6 +20,7 @@ class Visualizer:
 
     def __init__(self):
 
+        self.ani = None
         self.data_file = get_data_folder_path() + '/visualize.json'
 
         self.get_klines()
@@ -54,9 +55,15 @@ class Visualizer:
         )
         self.lock = threading.Lock()
 
-        threading.Thread(target=self.read_data_run, daemon=True).start()
+        self.thread = threading.Thread(target=self.read_data_run, daemon=True)
+        self.thread.start()
+        self.running = True
 
     def _animate(self, frame):
+
+        if not self.running:
+            plt.close()
+            return
 
         set_alive_counter('visualizer_alive.txt')
 
@@ -115,8 +122,9 @@ class Visualizer:
                 self.trade_lines.append(dca_line)
 
     def start_animation(self):
-        ani = animation.FuncAnimation(self.fig, self._animate, interval=100)
+        self.ani = animation.FuncAnimation(self.fig, self._animate, interval=100)
         plt.show()
+        self.thread.join()
 
 
     def get_klines(self):
@@ -158,6 +166,12 @@ class Visualizer:
             self.get_klines()
             self.read_trades_dcas()
             time.sleep(0.1)
+
+            run = read_alive_cmd("VISUALIZER")
+            if run == ALIVE_CMD.STOP:
+                self.running = False
+                break
+
 
 if __name__ == '__main__':
     # Hide console window

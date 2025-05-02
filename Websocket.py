@@ -7,7 +7,7 @@ import csv
 import os
 import signal
 
-from Tool import get_data_folder_path, set_terminal_title, set_alive_counter
+from Tool import get_data_folder_path, set_terminal_title, set_alive_counter, read_alive_cmd, ALIVE_CMD
 
 if __name__ == '__main__':
     set_terminal_title("Websocket")
@@ -93,5 +93,11 @@ if __name__ == '__main__':
         if trim_file_counter == 10:
             trim_file()
             trim_file_counter = 0
+
+        run = read_alive_cmd('WEBSOCKET')
+        if run == ALIVE_CMD.STOP:
+            running = False
+            web_socket.stop()
+            exit(0)
     
     

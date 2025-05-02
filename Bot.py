@@ -1,4 +1,7 @@
+import multiprocessing
+import signal
 import subprocess
+from _winapi import CREATE_NEW_CONSOLE
 from subprocess import run, Popen
 import sys
 import os
@@ -10,14 +13,16 @@ import Config
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QTableWidget, \
     QTableWidgetItem, QGridLayout, QTextEdit
-from PyQt5.QtGui import QColor
-from PyQt5.QtCore import Qt, QTimer
 from qt_material import apply_stylesheet
 from functools import partial
 
+from Tool import get_data_folder_path, ALIVE_CMD, write_alive_cmd
+
+
 # Hàm khởi chạy CMD và lấy handle
-def start_cmd(script_name, window_name, container_hwnd, window_size):
-    os.system(script_name)
+def start_cmd(script_name, window_name, container_hwnd, window_size, proc_name):
+    write_alive_cmd(proc_name, ALIVE_CMD.RUN)
+    proc = subprocess.Popen(f"{script_name}",  creationflags=CREATE_NEW_CONSOLE)
 
     for _ in range(30):
         time.sleep(1)
@@ -27,33 +32,49 @@ def start_cmd(script_name, window_name, container_hwnd, window_size):
             ctypes.windll.user32.MoveWindow(hwnd, 0, 0, window_size[0], window_size[1], True)
             break
 
+    return proc
 
-def is_window_running(window_name):
-    return ctypes.windll.user32.FindWindowW(None, window_name) != 0
+
+def is_window_running(proc):
+    if proc is None:
+        return False
+    return proc.poll() is None
+
+def kill_process(proc_name):
+    write_alive_cmd(proc_name, ALIVE_CMD.STOP)
+    time.sleep(0.1)
 
 
 class ProcessMonitor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Process Monitor")
-        self.setGeometry(0, 0, 1200, 1000)
+        self.h = 1080
+        self.w = 1920
+        self.setGeometry(0, 0, self.h, self.w)
 
         self.data_folder =f"{time.strftime('%d_%m_%y-%H')}"
-        os.makedirs(self.data_folder, exist_ok=True)
+        os.makedirs("DATA/" + self.data_folder, exist_ok=True)
+
+        self.proc_Alive_cmd_name = ["PRICE", "WEBSOCKET", "VISUALIZER", "MAIN"]
+        for cmd_name in self.proc_Alive_cmd_name:
+            write_alive_cmd(cmd_name, ALIVE_CMD.RUN)
+
 
         self.alive_files = ['price_alive.txt', 'websocket_alive.txt', 'visualizer_alive.txt', 'main_alive.txt']
         self.last_alive = [0] * len(self.alive_files)
         self.alive_time = [datetime.now()] * len(self.alive_files)
         self.script_names = ["Price", "Websocket", "Visualizer", "Main"]
         # f'start cmd /k "cd /d {os.getcwd()} & {script_name} & exit"'
-        self.scripts = [f'start cmd /k python Price.py {self.data_folder}',
-                        f'start cmd /k python Websocket.py {self.data_folder}',
-                        f"start pythonw Visualizer.py {self.data_folder}",
-                        f'start cmd /k python Main.py {self.data_folder}'
+        self.scripts = [f'cmd /k python Price.py {self.data_folder}',
+                        f'cmd /k python Websocket.py {self.data_folder}',
+                        f"pythonw Visualizer.py {self.data_folder}",
+                        f'cmd /k python Main.py {self.data_folder}'
                         ]
         self.window_name = ['Price', 'Websocket', "Figure 1", 'Main']
         self.row_column_spans = [(2, 2, 1, 1), (1, 2, 1, 1), (1, 0, 2, 2), (0, 1, 1, 2)]
-        self.window_sizes = [(600, 300), (600, 300), (1200, 600), (1200, 300)]
+        unit_tp = (int(self.w/3), int(self.h/3))
+        self.window_sizes = [unit_tp, unit_tp, (int(self.w/3*2), int(self.h/3*2)), (int(self.w/3*2), int(self.h/3))]
         self.process_widgets = []
 
         self.central_widget = QWidget()
@@ -63,7 +84,7 @@ class ProcessMonitor(QMainWindow):
 
         h_widget = QWidget()
         h_layout = QGridLayout(h_widget)
-        h_widget.setFixedSize(600, 300)
+        h_widget.setFixedSize(unit_tp[0], unit_tp[1])
         main_layout.addWidget(h_widget, 0, 0, 1, 1)
 
         self.table = QTableWidget(len(self.scripts), 3)
@@ -79,9 +100,24 @@ class ProcessMonitor(QMainWindow):
         h_layout.addWidget(self.config_text, 0, 2, 3, 1)
 
         # Add button to open config file
+        button_layout = QHBoxLayout()
+        h_layout.addLayout(button_layout, 3, 0, 1, 3)
+
         open_config_btn = QPushButton("Open Config")
         open_config_btn.clicked.connect(self.open_config_file)
-        h_layout.addWidget(open_config_btn, 2, 0, 1, 1)
+        button_layout.addWidget(open_config_btn)
+
+        start_all_button = QPushButton("Start All")
+        start_all_button.clicked.connect(self.start_all_process)
+        button_layout.addWidget(start_all_button)
+
+        stop_all_button = QPushButton("Stop All")
+        stop_all_button.clicked.connect(self.stop_all_process)
+        button_layout.addWidget(stop_all_button)
+
+        quit_button = QPushButton("Quit")
+        quit_button.clicked.connect(self.quit)
+        button_layout.addWidget(quit_button)
 
         for i, script in enumerate(self.scripts):
             widget = QWidget()
@@ -115,66 +151,54 @@ class ProcessMonitor(QMainWindow):
         button = self.table.cellWidget(row, 2)
 
         if status_button.text() == "STOPPED":
-            start_cmd(script_name, window_name, int(self.process_widgets[row].winId()), self.window_sizes[row])
+            start_cmd(script_name, window_name, int(self.process_widgets[row].winId()), self.window_sizes[row], self.proc_Alive_cmd_name[row])
             status_button.setText("RUNNING")
             status_button.setStyleSheet("background-color: green; color: white")
-            self.start_blinking(status_button)
             button.setText("Stop")
         else:
-            self.kill_process(script_name)
+            kill_process(self.proc_id[row])
             status_button.setText("STOPPED")
             status_button.setStyleSheet("background-color: red; color: white")
-            self.stop_blinking(status_button)
             button.setText("Start")
-
-    def kill_process(self, script_name):
-        import psutil
-        for proc in psutil.process_iter(['name', 'cmdline']):
-            try:
-                if proc.info['cmdline'] and script_name in proc.info['cmdline']:
-                    proc.kill()
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-
-    def start_blinking(self, button):
-        timer = QTimer(button)
-        timer.timeout.connect(lambda: self.toggle_blink(button))
-        timer.start(500)
-        button.blink_timer = timer
-        button.blink_state = True
-
-    def stop_blinking(self, button):
-        if hasattr(button, 'blink_timer'):
-            button.blink_timer.stop()
-            del button.blink_timer
-            button.setStyleSheet("background-color: red; color: white")
 
     def update_config_display(self):
         config_text = f"""Configuration Settings:
     Margin: {Config.leverage}
     BB std: {Config.bb_stddev}
     RSI Period: {Config.rsi_period}
-    RSI Long > {int(Config.rsi_long)}
-    RSI Short < {int(Config.rsi_short)}
+    RSI Long < {int(Config.rsi_long)}
+    RSI Short > {int(Config.rsi_short)}
     Distance: {Config.distance}
     N1: {Config.n1}
     N2: {Config.n2}
-    SL: {Config.sl_ratio}
     TP1: {Config.tp1_ratio}
     TP2: {Config.tp2_ratio}"""
 
         self.config_text.setText(config_text)
 
-    def toggle_blink(self, button):
-        if button.blink_state:
-            button.setStyleSheet("background-color: darkgreen; color: white")
-        else:
-            button.setStyleSheet("background-color: green; color: white")
-        button.blink_state = not button.blink_state
 
     def open_config_file(self):
         subprocess.run(['notepad.exe', 'Ini/Algorithm.ini'])
+
+        import importlib
+        importlib.reload(Config)
         self.update_config_display()
+
+        self.update_config_display()
+
+    def start_all_process(self):
+        for row, script in enumerate(self.scripts):
+            start_cmd(script, self.window_name[row], int(self.process_widgets[row].winId()), self.window_sizes[row], self.proc_Alive_cmd_name[row])
+
+    def stop_all_process(self):
+        for row, script in enumerate(self.scripts):
+            kill_process(self.proc_Alive_cmd_name[row])
+
+    def quit(self):
+        self.stop_all_process()
+        self.monitoring = False
+        self.close()
+        QApplication.quit()
 
     def check_processes(self):
 
@@ -206,18 +230,22 @@ class ProcessMonitor(QMainWindow):
                     if status_button.text() != "RUNNING":
                         status_button.setText("RUNNING")
                         status_button.setStyleSheet("background-color: green; color: white")
-                        self.start_blinking(status_button)
                         action_button.setText("Stop")
                 else:
                     if status_button.text() != "STOPPED":
                         status_button.setText("STOPPED")
-                        self.stop_blinking(status_button)
                         status_button.setStyleSheet("background-color: red; color: white")
                         action_button.setText("Start")
 
             time.sleep(0.2)
 
 if __name__ == "__main__":
+    # if not ctypes.windll.shell32.IsUserAnAdmin():
+    #     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
+    #     sys.exit()
+    # if not ctypes.windll.shell32.IsUserAnAdmin():
+    #     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
+    #     sys.exit()
     app = QApplication(sys.argv)
 
     extra = {
@@ -225,7 +253,7 @@ if __name__ == "__main__":
         'font_size': 14,
     }
     apply_stylesheet(app, theme='dark_yellow.xml', extra=extra)
-
     window = ProcessMonitor()
+    window.showFullScreen()
     window.show()
-    sys.exit(app.exec_())
+    app.exec()

@@ -21,7 +21,6 @@ fibonacci_str = config.get('FIBONACCI', 'fibonacci')
 fibonacci_values = [float(x) for x in fibonacci_str.split()]
 
 # Get SL and TP parameters
-sl_ratio = config.getfloat('BOT', 'sl')/100
 tp1_ratio = config.getfloat('BOT', 'tp1')/100
 tp2_ratio = config.getfloat('BOT', 'tp2')/100
 
@@ -30,3 +29,10 @@ n2 = config.getfloat('BOT', 'n2')
 
 
 leverage = config.getfloat('BOT', 'leverage')
+
+
+limit_timeout = config.getint('BOT', 'limit_timeout')
+tp_timeout = config.getint('BOT', 'tp_timeout')
+tp_decrease_time = config.getint('BOT', 'tp_decrease_time')
+tp_min = config.getfloat('BOT', 'tp_min')
+tp_decrease_step = config.getfloat('BOT', 'tp_decrease_step')

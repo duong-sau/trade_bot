@@ -23,7 +23,6 @@ def open_limit(symbol, side, amount, price):
         return order['id']
     except:
         log_error()
-        force_stop_loss(symbol)
         return False
 
 def open_take_profit(symbol,side, quantity, price):
@@ -33,11 +32,12 @@ def open_take_profit(symbol,side, quantity, price):
                                    side="SELL" if side== "LONG" else "BUY",
                                    amount=quantity,
                                    price=price,
-                                   params={"takeProfitPrice": price,"positionSide": side})
+                                   params={
+                                    "takeProfitPrice": price,
+                                    "positionSide": side})
         return order['id']
     except Exception as e:
         log_error()
-        force_stop_loss(symbol)
         return False
 
 def open_stop_loss(symbol, side, quantity, price):
@@ -51,31 +51,35 @@ def open_stop_loss(symbol, side, quantity, price):
         return order['id']
     except Exception as e:
         log_error()
-        force_stop_loss(symbol)
         return False
 
 def force_stop_loss(symbol):
     log_action("-------------- ERROR FORCE STOP LOSS ------------------------", datetime.datetime.now())
     try:
 
-        client.cancel_all_orders(symbol=symbol)
+        order = client.cancel_all_orders(symbol=symbol)
+        # print(order)
 
         positions = client.fetch_positions()
         if len(positions) == 0:
-            return None
-        amount = positions[0]['info']['positionAmt']
+            return False
+
+        # print(positions)
+
+        amount = float(positions[0]['info']['positionAmt'])
         side = positions[0]['info']['positionSide']
 
         order = client.createOrder(symbol=symbol,
                                    type="market",
                                    side="SELL" if side== "LONG" else "BUY",
-                                   amount=amount,
+                                   amount=amount if side == "LONG" else -amount,
                                    params={"positionSide": side}
                                    )
-        return order['id']
+        # print(order)
+        return True
     except Exception as e:
+        print(e)
         log_error()
-        force_stop_loss(symbol)
         return False
 
 
