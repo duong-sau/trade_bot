@@ -1,11 +1,8 @@
 import signal
 import time
-
-import websocket
-import json
+from binance.client import Client
 import csv
 from datetime import datetime
-import requests
 import os
 import sys
 
@@ -23,15 +20,9 @@ if __name__ == '__main__':
 
 
     def get_historical_klines():
-        url = "https://testnet.binancefuture.com/fapi/v1/klines"
-        params = {
-            "symbol": "BTCUSDT",
-            "interval": "5m",
-            "limit": 500
-        }
-        response = requests.get(url, params=params)
-        return response.json()
-
+        client = Client(api_key='', api_secret='', testnet=testnet)
+        klines = client.futures_klines(symbol="BTCUSDT", interval=Client.KLINE_INTERVAL_5MINUTE, limit=500)
+        return klines
     # Xóa file cũ nếu tồn tại và tạo file mới
     file_path = os.path.join(folder_path, 'price.csv')
     if os.path.exists(file_path):

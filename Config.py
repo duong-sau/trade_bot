@@ -16,10 +16,6 @@ bb_stddev = config.getfloat('ALOG', 'bb_stddev')
 # Get distance parameter
 distance = config.getfloat('ALOG', 'distance')
 
-# Get Fibonacci values
-fibonacci_str = config.get('FIBONACCI', 'fibonacci')
-fibonacci_values = [float(x) for x in fibonacci_str.split()]
-
 # Get SL and TP parameters
 tp1_ratio = config.getfloat('BOT', 'tp1')/100
 tp2_ratio = config.getfloat('BOT', 'tp2')/100

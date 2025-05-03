@@ -40,21 +40,14 @@ def compute_rsi(data, period=14):
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
     # Long Points (L0, L1, L2)
-   # L0 = lower
-   # L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
-   # L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
+    L0 = lower
+    L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
+    L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
 
-   # # Short Points (S0, S1, S2)
-   # S0 = upper
-   # S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
-   # S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
-    L0 = current - 0
-    L1 = current - 0
-    L2 = current - 500
-    #
-    S0 = current + 0
-    S1 = current + 0
-    S2 = current + 500
+    # Short Points (S0, S1, S2)
+    S0 = upper
+    S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
+    S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
 
     return (L0, L1, L2), (S0, S1, S2)
 
