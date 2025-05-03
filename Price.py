@@ -32,7 +32,6 @@ if __name__ == '__main__':
         response = requests.get(url, params=params)
         return response.json()
 
-
     # Xóa file cũ nếu tồn tại và tạo file mới
     file_path = os.path.join(folder_path, 'price.csv')
     if os.path.exists(file_path):
@@ -56,31 +55,35 @@ if __name__ == '__main__':
 
     def on_message(message):
         global message_counter
-        data = message['data']
-        price = data['p']  # Giá giao dịch
-        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Thời gian hiện tại
-        print(f"Time: {time}, Price: {price}")
+        try:
+            price = message['data']['p']  # Giá giao dịch
+            time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Thời gian hiện tại
+            print(f"Time: {time}, Price: {price}")
 
-        # Ghi vào file CSV
-        with open(file_path, 'a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([time, price])
+            # Ghi vào file CSV
+            with open(file_path, 'a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([time, price])
 
-        message_counter += 1
-        if message_counter > 20000:
-            # Read all lines
-            with open(file_path, 'r') as file:
-                lines = file.readlines()
-            # Write back excluding first 1000 lines    
-            with open(file_path, 'w') as file:
-                file.writelines(lines[10000:])
-            message_counter -= 10000
+            message_counter += 1
+            if message_counter > 20000:
+                # Read all lines
+                with open(file_path, 'r') as file:
+                    lines = file.readlines()
+                # Write back excluding first 1000 lines
+                with open(file_path, 'w') as file:
+                    file.writelines(lines[10000:])
+                message_counter -= 10000
+        except Exception as e:
+            print(f"Error: {e}")
+            print(message)
+
 
     web_socket = ThreadedWebsocketManager(
         testnet=testnet)
     web_socket.start()
     print('Websocket reconnected')
-    web_socket.start_symbol_mark_price_socket(symbol="BTCUSDT", callback=on_message)
+    web_socket.start_aggtrade_futures_socket(symbol="BTCUSDT", callback=on_message)
 
     def stop():
         web_socket.stop()

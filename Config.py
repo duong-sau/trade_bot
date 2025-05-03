@@ -34,5 +34,5 @@ leverage = config.getfloat('BOT', 'leverage')
 limit_timeout = config.getint('BOT', 'limit_timeout')
 tp_timeout = config.getint('BOT', 'tp_timeout')
 tp_decrease_time = config.getint('BOT', 'tp_decrease_time')
-tp_min = config.getfloat('BOT', 'tp_min')
-tp_decrease_step = config.getfloat('BOT', 'tp_decrease_step')
+tp_min = config.getfloat('BOT', 'tp_min') /100
+tp_decrease_step = config.getfloat('BOT', 'tp_decrease_step') / 100

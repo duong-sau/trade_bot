@@ -2,17 +2,15 @@ import datetime
 from enum import Enum
 import uuid
 
+from Server.Binance.Types.Position import POSITION_SIDE
+
+
 class ORDER_TYPE(Enum):
     LIMIT = 1
     TP = 2
     SL = 3
     MARKET = 4
     STOP = 5
-
-class ORDER_SIDE(Enum):
-    LONG = 1
-    NONE = 0
-    SHORT = -1
 
 class ORDER_STATUS(Enum):
     PUSHED = 0
@@ -43,7 +41,7 @@ class Order:
     def check_fill(self, current):
         if self.type == ORDER_TYPE.LIMIT:
             # limit long and short
-            if self.side == ORDER_SIDE.LONG:
+            if self.side == POSITION_SIDE.LONG:
                 if current <= self.trigger_price:
                     return True
             else:
@@ -51,7 +49,7 @@ class Order:
                     return True
         elif self.type == ORDER_TYPE.TP:
             # tp long and short
-            if self.side == ORDER_SIDE.LONG:
+            if self.side == POSITION_SIDE.LONG:
                 if current >= self.trigger_price:
                     return True
             else:
@@ -59,7 +57,7 @@ class Order:
                     return True
         elif self.type == ORDER_TYPE.SL:
             # sl long and short
-            if self.side == ORDER_SIDE.LONG:
+            if self.side == POSITION_SIDE.LONG:
                 if current <= self.trigger_price:
                     return True
             else:

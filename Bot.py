@@ -87,17 +87,20 @@ class ProcessMonitor(QMainWindow):
         h_widget.setFixedSize(unit_tp[0], unit_tp[1])
         main_layout.addWidget(h_widget, 0, 0, 1, 1)
 
+        tb_config_layout = QHBoxLayout()
+        h_layout.addLayout(tb_config_layout, 0, 0, 3, 1)
+
         self.table = QTableWidget(len(self.scripts), 3)
         self.table.setHorizontalHeaderLabels(["Script", "Status", "Action"])
-        self.table.setColumnWidth(0, 120)
-        self.table.setFixedSize(400, 200)
-        h_layout.addWidget(self.table, 0, 0, 2, 2)
+        self.table.setColumnWidth(0, 90)
+        self.table.setFixedSize(300, 250)
+        tb_config_layout.addWidget(self.table)
 
         self.config_text = QTextEdit()
         self.config_text.setReadOnly(True)
-        self.config_text.setFixedSize(200, 250)
+        self.config_text.setFixedSize(300, 250)
         self.update_config_display()
-        h_layout.addWidget(self.config_text, 0, 2, 3, 1)
+        tb_config_layout.addWidget(self.config_text)
 
         # Add button to open config file
         button_layout = QHBoxLayout()
@@ -134,6 +137,8 @@ class ProcessMonitor(QMainWindow):
         self.monitor_thread.start()
 
     def init_table(self):
+        self.table.verticalHeader().setVisible(False)
+
         for row, script in enumerate(self.scripts):
             self.table.setItem(row, 0, QTableWidgetItem(self.script_names[row]))
 
@@ -162,17 +167,18 @@ class ProcessMonitor(QMainWindow):
             button.setText("Start")
 
     def update_config_display(self):
-        config_text = f"""Configuration Settings:
-    Margin: {Config.leverage}
-    BB std: {Config.bb_stddev}
-    RSI Period: {Config.rsi_period}
-    RSI Long < {int(Config.rsi_long)}
-    RSI Short > {int(Config.rsi_short)}
-    Distance: {Config.distance}
-    N1: {Config.n1}
-    N2: {Config.n2}
-    TP1: {Config.tp1_ratio}
-    TP2: {Config.tp2_ratio}"""
+        config_text = f"""Margin: {Config.leverage}
+BB: {Config.bb_period} - std: {Config.bb_stddev}
+RSI: {Config.rsi_period}
+RSI Long  < {int(Config.rsi_long)}
+RSI Short > {int(Config.rsi_short)}
+Distance  > {Config.distance}
+N1: {Config.n1} - N2: {Config.n2}
+TP1: {Config.tp1_ratio* 100}% - TP2: {Config.tp2_ratio* 100}%
+limit1_timeout: {Config.limit_timeout}
+tp2_decree: after {Config.tp_timeout}m, with {Config.tp_decrease_time}m interval decrease by {Config.tp_decrease_step * 100}%
+tp2_min: {Config.tp_min* 100}%
+"""
 
         self.config_text.setText(config_text)
 

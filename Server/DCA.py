@@ -3,7 +3,7 @@ from RealServer.Binance import BinanceServer
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
-from Tool import log_action
+from Tool import log_action, log_order
 
 
 class DCA:
@@ -25,6 +25,7 @@ class TRADE_STEP:
     NONE = 0
     LIMIT1_FILLED = 1
     LIMIT2_FILLED = 2
+    TP2_DECREASE = 3
     ALL_CLOSED = 4
 
 
@@ -36,6 +37,7 @@ class DCAServer:
 
     def __init__(self):
         # self.binance_server = BinanceTestServer()
+
         self.binance_server = BinanceServer()
         self.position = POSITION_SIDE.NONE
         self.name = ""
@@ -64,6 +66,7 @@ class DCAServer:
         self.current_tp2_ratio = 0
 
         self.limit2_filled_time = None
+        self.tp2_putted_time = None
 
     def action_dca_open(self):
         self.log_dca_opened()
@@ -126,10 +129,16 @@ class DCAServer:
         if self.trade_step != TRADE_STEP.LIMIT2_FILLED:
             return None
         return self.binance_server.get_current_time() - self.limit2_filled_time
+    def get_tp2_decrease_time(self):
+        if self.trade_step != TRADE_STEP.TP2_DECREASE:
+            return None
+        return self.binance_server.get_current_time() - self.tp2_putted_time
 
     def decrease_tp(self):
-        if self.trade_step != TRADE_STEP.LIMIT2_FILLED:
-            return
+        if self.trade_step == TRADE_STEP.LIMIT2_FILLED:
+            self.trade_step = TRADE_STEP.TP2_DECREASE
+
+        self.tp2_putted_time = self.binance_server.get_current_time()
 
         if self.current_tp2_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
             print('error')
@@ -141,14 +150,14 @@ class DCAServer:
             self.tp2_val = round(
                 (self.step_x_volume[0] * self.step_x_price[0] + self.step_x_volume[1] * self.step_x_price[1]) / (
                             self.step_x_volume[0] + self.step_x_volume[1]) *
-                 (1 + self.tp2_ratio)
+                 (1 + self.current_tp2_ratio)
                      , 1)
 
         elif self.position == POSITION_SIDE.SHORT:
             self.tp2_val = round(
                 (self.step_x_volume[0] * self.step_x_price[0] + self.step_x_volume[1] * self.step_x_price[1]) / (
                         self.step_x_volume[0] + self.step_x_volume[1]) *
-                (1 - self.tp2_ratio)
+                (1 - self.current_tp2_ratio)
                 , 1)
 
         if not self.cancel_tp2():
@@ -160,7 +169,7 @@ class DCAServer:
         vl = self.step_x_volume[0]
         entry = self.step_x_price[0]
         self.limit1 = self.binance_server.open_order(order_type=ORDER_TYPE.LIMIT,
-                                                     side=POSITION_SIDE.LONG,
+                                                     side=self.position,
                                                      amount=vl,
                                                      entry=entry,
                                                      reduce_only=False)
@@ -197,6 +206,7 @@ class DCAServer:
         if not self.tp2:
             self.reset_dca_by_error()
             return False
+
         return True
 
     def put_sl1(self):
@@ -331,15 +341,18 @@ class DCAServer:
             if message.order.type == ORDER_TYPE.LIMIT:
                 if message.order.id == self.limit1 or message.order.id == self.limit2:
                     self.handel_limit_filled(message)
-
+                else:
+                    assert False
             elif message.order.type == ORDER_TYPE.TP:
                 if message.order.id == self.tp1 or message.order.id == self.tp2:
                     self.handel_tp_filled(message)
-
+                else:
+                    assert False
             elif message.order.type == ORDER_TYPE.SL:
                 if message.order.id == self.sl1 or message.order.id == self.sl2:
                     self.handel_sl_filled(message)
-
+                else:
+                    assert False
 
     def tick(self):
         self.binance_server.tick()
@@ -397,6 +410,8 @@ class DCAServer:
         self.trade_step = TRADE_STEP.NONE
 
         self.last_trade_time = None
+        self.limit2_filled_time = None
+        self.tp2_putted_time = None
 
         self.limit1 = None
         self.limit2 = None

@@ -6,7 +6,7 @@ import pandas_ta as ta
 import pandas as pd
 from tqdm import tqdm
 from Config import bb_period, bb_stddev
-from Server.Binance.Types.Order import ORDER_SIDE, ORDER_TYPE
+from Server.Binance.Types.Order import ORDER_TYPE
 from datetime import datetime
 
 from Server.Binance.Types.Position import POSITION_SIDE
@@ -31,33 +31,11 @@ def compute_bb_2(input_data):
 
 # Hàm tính RSI
 def compute_rsi(data, period=14):
-    if len(data) < period + 1:
-        raise ValueError("Input data length must be at least period + 1")
+    df = pd.DataFrame()
+    df['close'] = data
+    df['rsi'] = ta.rsi(df['close'], length=14)
 
-    # Tính thay đổi giá hằng ngày
-    changes = [data[i] - data[i-1] for i in range(1, len(data))]
-
-    # Phân loại lãi (gain) và lỗ (loss)
-    gains = [x if x > 0 else 0 for x in changes]
-    losses = [-x if x < 0 else 0 for x in changes]
-
-    # Tính trung bình lãi và lỗ ban đầu
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
-
-    # Duy trì giá trị trung bình động (Smoothed Moving Average)
-    for i in range(period, len(changes)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-
-    # Tính RS và RSI
-    if avg_loss == 0:
-        rsi = 100  # Nếu không có lỗ, RSI = 100
-    else:
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
-
-    return rsi
+    return df['rsi'].tolist()[-1]
 
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
@@ -70,13 +48,13 @@ def calculate_points(lower, upper, ma, current):
    # S0 = upper
    # S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
    # S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
-    L0 = current - 10
-    L1 = current - 20
-    L2 = current - 200
+    L0 = current - 0
+    L1 = current - 0
+    L2 = current - 500
     #
-    S0 = current + 10
-    S1 = current + 20
-    S2 = current + 200
+    S0 = current + 0
+    S1 = current + 0
+    S2 = current + 500
 
     return (L0, L1, L2), (S0, S1, S2)
 

@@ -46,30 +46,32 @@ if __name__ == '__main__':
     file.close()
 
     def process_message(message):
+        try:
+            global counter
+            if 'e' in message and message['e'] == 'ORDER_TRADE_UPDATE':
+                order = message['o']
+                order_id = str(order['i'])
+                event = order['X']
+                price = order['p']
 
-        global counter
-        if 'e' in message and message['e'] == 'ORDER_TRADE_UPDATE':
-            order = message['o']
-            order_id = str(order['i'])
-            event = order['X']
-            price = order['p']
+                if event == "FILLED":
+                    action = "FILLED"
+                elif event == "CANCELED":
+                    action = "CANCELED"
+                else:
+                    return
 
-            if event == "FILLED":
-                action = "FILLED"
-            elif event == "CANCELED":
-                action = "CANCELED"
+                # Print and log the message
+                print(f"\033[K{counter}: {action} - Order ID: {order_id}, Price: {price}")
             else:
-                return
-
-            # Print and log the message
-            print(f"\033[K{counter}: {action} - Order ID: {order_id}, Price: {price}")
-        else:
-            print(f"\033[K{counter}: {str(message)[0:40]}")
-        with open(os.path.join(folder_path, 'websocket.csv'), 'a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([counter,datetime.datetime.now(), message])
-            counter += 1
-
+                print(f"\033[K{counter}: {str(message)[0:40]}")
+            with open(os.path.join(folder_path, 'websocket.csv'), 'a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([counter,datetime.datetime.now(), message])
+                counter += 1
+        except Exception as e:
+            print(f"Error: {e}")
+            print(message)
 
     web_socket.start_futures_socket(callback=process_message)
 

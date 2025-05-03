@@ -5,9 +5,9 @@ from enum import Enum
 from queue import Queue
 
 from tqdm import tqdm
-from Server.Binance.Types.Position import Position
+from Server.Binance.Types.Position import Position, POSITION_SIDE
 from Server.Binance.Kline.KlineServer import KlineServer
-from Server.Binance.Types.Order import Order, ORDER_TYPE, ORDER_SIDE
+from Server.Binance.Types.Order import Order, ORDER_TYPE
 from Server.Binance.Types.User import User
 from Tool import log_order
 
@@ -54,7 +54,7 @@ class BinanceTestServer:
                 tp = order.trigger_price
             elif order.type == ORDER_TYPE.SL:
                 sl = order.trigger_price
-        if self.position.side != ORDER_SIDE.NONE:
+        if self.position.side != POSITION_SIDE.NONE:
             self.position.update_tp_sl(tp, sl)
         else:
             self.position.update_tp_sl(0,0)

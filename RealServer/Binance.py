@@ -52,30 +52,24 @@ class BinanceServer:
 
     def handle_socket_event(self, msg):
         """Handles WebSocket events."""
-        try:
-            order_id, event, price = str(msg['i']), msg['X'], msg['p']
+        order_id, event, price = str(msg['i']), msg['X'], msg['p']
 
-            action = None
-            # put to queue
-            if event == "FILLED":
-                action = ORDER_ACTION.FILLED
+        action = None
+        # put to queue
+        if event == "FILLED":
+            action = ORDER_ACTION.FILLED
 
-            elif event == "CANCELED":
-                action = ORDER_ACTION.CANCELLED
+        elif event == "CANCELED":
+            action = ORDER_ACTION.CANCELLED
 
-            if action is None:
-                return
+        if action is None:
+            return
 
-            for order in self.sub_server.order_list:
-                if order_id == order.id:
-                    m = ServerOrderMessage(action, order)
-                    self.sub_server.handel_message(m)
-                    self.ws_queue.put(m)
-
-
-
-        except:
-            log_error()
+        for order in self.sub_server.order_list:
+            if order_id == order.id:
+                m = ServerOrderMessage(action, order)
+                self.sub_server.handel_message(m)
+                self.ws_queue.put(m)
 
     def open_order(self, order_type, side, amount, entry, reduce_only =False):
         """Opens a new order."""
@@ -107,10 +101,6 @@ class BinanceServer:
         self.sub_server.cancel_order(order_id)
         return cancel_order(self.symbol, order_id)
 
-    def set_margin(self, data):
-        """Sets the margin for the order."""
-        pass
-    
     
     def get_window_klines(self, param):
         try:
