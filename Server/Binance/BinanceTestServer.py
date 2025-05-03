@@ -5,11 +5,14 @@ from enum import Enum
 from queue import Queue
 
 from tqdm import tqdm
+
+from RealServer.Binance import BinanceServer
+from Server.Binance.TestServer import TestServer
 from Server.Binance.Types.Position import Position, POSITION_SIDE
 from Server.Binance.Kline.KlineServer import KlineServer
 from Server.Binance.Types.Order import Order, ORDER_TYPE
 from Server.Binance.Types.User import User
-from Tool import log_order
+from Tool import log_order, log_action
 
 
 class ORDER_ACTION(Enum):
@@ -22,18 +25,16 @@ class ServerOrderMessage:
         self.order = order
 
 class BinanceTestServer:
-    main_thread = None
-    klines_server = None
     user = None
-
-    so_lenh = 0
-
-
     # sl_ratio = 0.3 / 100
 
     def __init__(self, test):
         self.test = test
-        self.klines_server = KlineServer()
+        if self.test:
+            self.klines_server = TestServer()
+        else:
+            self.klines_server = BinanceServer()
+
         self.user = User()
 
         self.position = Position()
@@ -43,10 +44,13 @@ class BinanceTestServer:
 
     # Private API ----------------------------------------------------
     def tick(self):
-        if not self.test:
-            self.klines_server.up_tick()
-            current = self.klines_server.get_current_price()
-            self.check_order(current)
+
+        self.klines_server.tick()
+
+        while self.klines_server.ws_queue.qsize() > 0:
+            message = self.klines_server.ws_queue.get()
+            self.handel_message(message)
+
         sl  = 0
         tp = 0
         for order in self.order_list:
@@ -61,27 +65,31 @@ class BinanceTestServer:
         return
 
 
-    def check_order(self, current):
-        for order in self.order_list:
-            if order.check_fill(current):
-                self.action_when_filled(order, current)
-
     def action_when_filled(self, order, current):
         log_order("FILLED", order, self.get_current_time())
 
         self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.FILLED, order))
         if order.type == ORDER_TYPE.LIMIT:
             self.position.extend(order)
-            self.order_list.remove(order)
         else:
             self.position.remove(order)
             self.user.add_profit(self.position.get_profit(current), self, test=self.test)
-            self.order_list.remove(order)
 
     # Public Order API --------------------------------------------------------------------------------------------------------------------
     def open_order(self, order_type, side, amount, entry, reduce_only =False):
+
             order = Order(order_type, side, amount, entry, reduce_only)
             log_order("PLACED", order, self.get_current_time())
+
+            order_id = self.klines_server.open_order(order_type, side, amount, entry, reduce_only)
+            if not order_id:
+                log_order("ERROR", order, self.get_current_time())
+                self.position.reset()
+                self.order_list = []
+                return False
+
+
+            order.id = order_id
 
             self.order_list.append(order)
             return order.id
@@ -90,23 +98,24 @@ class BinanceTestServer:
         with self.lock:
             for order in self.order_list:
                 if order.id == order_id:
-                    log_order("CANCLD", order, self.get_current_time())
-                    self.order_list.remove(order)
-                    self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.CANCELLED, order))
-                    break
+                    log_order(f"CANCLD",order, self.get_current_time())
+            if self.klines_server.cancel_order(order_id):
+                return True
 
+            log_action(f"ERROR WHEN CANCEL_ORDER - ID: {order_id}", self.get_current_time())
+            self.position.reset()
+            self.order_list = []
+            return False
     # Public -----------------------------------------------------------------------------------------------------------
 
     def get_current(self):
         return self.klines_server.get_current_price()
 
     def get_current_time(self):
-        if self.test:
-            return datetime.datetime.now()
         return self.klines_server.get_current_time()
 
     def get_window_klines(self, limit):
-        return self.klines_server.get_window_price(limit)
+        return self.klines_server.get_window_klines(limit)
 
     def get_budget(self):
         return self.user.budget
@@ -115,9 +124,27 @@ class BinanceTestServer:
         return self.klines_server.get_total()
 
     # API from server ----------------------------------------------------------------------------------------------------
-    def handel_message(self, message):
-        with self.lock:
-            if message.action == ORDER_ACTION.FILLED:
-                self.action_when_filled(message.order, self.get_current())
-            elif message.action == ORDER_ACTION.CANCELLED:
-                self.position.remove(message.order)
+    def handel_message(self, msg):
+        """Handles WebSocket events."""
+        order_id, event, price = str(msg['i']), msg['X'], msg['p']
+
+        action = None
+        # put to queue
+        if event == "FILLED":
+            action = ORDER_ACTION.FILLED
+
+        elif event == "CANCELED":
+            action = ORDER_ACTION.CANCELLED
+
+        if action is None:
+            return
+
+        for order in self.order_list:
+            if order_id == order.id:
+                if action == ORDER_ACTION.FILLED:
+                    self.action_when_filled(order, self.get_current())
+                    self.order_list.remove(order)
+                elif action == ORDER_ACTION.CANCELLED:
+                    self.order_list.remove(order)
+                    # self.ws_queue.put(ServerOrderMessage(ORDER_ACTION.CANCELLED, order))
+

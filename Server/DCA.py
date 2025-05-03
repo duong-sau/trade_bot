@@ -1,3 +1,5 @@
+import datetime
+
 import Config
 from RealServer.Binance import BinanceServer
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
@@ -36,9 +38,7 @@ class DCAServer:
     tp2_ratio = Config.tp2_ratio / 100
 
     def __init__(self):
-        # self.binance_server = BinanceTestServer()
-
-        self.binance_server = BinanceServer()
+        self.binance_server = BinanceTestServer(test=False)
         self.position = POSITION_SIDE.NONE
         self.name = ""
 
@@ -123,7 +123,7 @@ class DCAServer:
 
         self.trade_step = TRADE_STEP.NONE
 
-        self.log_dca_closed()
+        self.log_dca_closed(error=False)
 
     def get_limit2_filled_time(self):
         if self.trade_step != TRADE_STEP.LIMIT2_FILLED:
@@ -297,43 +297,54 @@ class DCAServer:
         self.limit2_filled_time = self.binance_server.get_current_time()
 
     def handel_tp_filled(self, message):
+        result = False
         if message.order.id == self.tp1:
-            self.handel_tp1_filled(message)
+            result = self.handel_tp1_filled(message)
         elif message.order.id == self.tp2:
-            self.handel_tp2_filled(message)
+            result = self.handel_tp2_filled(message)
 
-        self.position = POSITION_SIDE.NONE
-        self.trade_step = TRADE_STEP.ALL_CLOSED
-        self.log_dca_closed()
+        if result:
+            self.position = POSITION_SIDE.NONE
+            self.trade_step = TRADE_STEP.ALL_CLOSED
+            self.log_dca_closed(error=False)
 
     def handel_tp1_filled(self, message):
         if not self.cancel_sl1():
-            return
-        if not self.limit2 is None:
-            self.cancel_limit2()
+            return False
+        if not self.cancel_limit2():
+            return False
+        return True
 
     def handel_tp2_filled(self, message):
-        self.cancel_sl2()
+        return self.cancel_sl2()
 
     def handel_sl_filled(self, message):
+        result = False
         if message.order.id == self.sl1:
-            self.handel_sl1_filled(message)
+            result = self.handel_sl1_filled(message)
         elif message.order.id ==self.sl2:
-            self.handel_sl2_filled(message)
-
-        self.position = POSITION_SIDE.NONE
-        self.trade_step = TRADE_STEP.ALL_CLOSED
-
-        self.log_dca_closed()
+            result = self.handel_sl2_filled(message)
+        if result:
+            self.position = POSITION_SIDE.NONE
+            self.trade_step = TRADE_STEP.ALL_CLOSED
+            self.log_dca_closed(error=False)
 
     def handel_sl1_filled(self, message):
+
+        current_time = self.binance_server.get_current_time()
+        if current_time > datetime.datetime(2025, 2, 20, 1, 41, 0):
+            a = 0
+
         if not self.cancel_tp1():
-            return
-        if not self.limit2 is None:
-            self.cancel_limit2()
+            return False
+
+        if not self.cancel_limit2():
+            return False
+
+        return True
 
     def handel_sl2_filled(self, message):
-        self.cancel_tp2()
+        return self.cancel_tp2()
 
     def handel_message(self, message):
         # log_order("HERE", message.order, self.binance_server.sub_server.get_current_time())
@@ -341,20 +352,21 @@ class DCAServer:
             if message.order.type == ORDER_TYPE.LIMIT:
                 if message.order.id == self.limit1 or message.order.id == self.limit2:
                     self.handel_limit_filled(message)
-                else:
-                    assert False
+                # else:
+                #     assert False
             elif message.order.type == ORDER_TYPE.TP:
                 if message.order.id == self.tp1 or message.order.id == self.tp2:
                     self.handel_tp_filled(message)
-                else:
-                    assert False
+                # else:
+                #     assert False
             elif message.order.type == ORDER_TYPE.SL:
                 if message.order.id == self.sl1 or message.order.id == self.sl2:
                     self.handel_sl_filled(message)
-                else:
-                    assert False
+                # else:
+                #     assert False
 
     def tick(self):
+
         self.binance_server.tick()
         while not self.binance_server.ws_queue.empty():
             message = self.binance_server.ws_queue.get()
@@ -367,11 +379,11 @@ class DCAServer:
         return self.trade_step
 
     def get_dac_num(self):
-        return self.binance_server.sub_server.order_list.__len__()
+        return len(self.binance_server.order_list)
 
     def get_trades(self):
         trades = []
-        pos = self.binance_server.sub_server.position
+        pos = self.binance_server.position
         trade = {
             "entry": pos.entry,
             "tp": pos.tp,
@@ -383,7 +395,7 @@ class DCAServer:
 
     def get_dcas(self):
         dcas = []
-        for order in self.binance_server.sub_server.order_list:
+        for order in self.binance_server.order_list:
             if order.type == ORDER_TYPE.LIMIT:
                 dca_info = {
                     "price": order.trigger_price,
@@ -399,8 +411,8 @@ class DCAServer:
     def get_window_klines(self, limit):
         return self.binance_server.get_window_klines(limit)
 
-    def log_dca_closed(self):
-        log_action(f"↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑DCAS CLOSED↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑\n", self.binance_server.get_current_time())
+    def log_dca_closed(self, error=True):
+        log_action(f"↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑DCAS CLOSED - {"NG" if error else "OK"}↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑\n", self.binance_server.get_current_time())
 
     def log_dca_opened(self):
         log_action(f"↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓DCAS OPENED↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓", self.binance_server.get_current_time())
@@ -428,5 +440,4 @@ class DCAServer:
         self.tp1_val = 0
         self.tp2_val = 0
 
-
-        self.log_dca_closed()
+        self.log_dca_closed(error=True)

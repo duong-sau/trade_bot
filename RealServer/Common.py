@@ -64,13 +64,12 @@ def force_stop_loss(symbol):
         # print(positions)
 
         amount = float(positions[0]['info']['positionAmt'])
-        side = positions[0]['info']['positionSide']
+        side = positions[0]['side']
 
         order = client.createOrder(symbol=symbol,
                                    type="market",
-                                   side="SELL" if side== "LONG" else "BUY",
-                                   amount=amount if side == "LONG" else -amount,
-                                   params={"positionSide": side}
+                                   side="SELL" if side== "long" else "BUY",
+                                   amount=amount if side == "long" else -amount,
                                    )
         # print(order)
         return True

@@ -4,7 +4,6 @@ from datetime import datetime
 import json
 import ctypes
 import pandas as pd
-import numpy as np
 import pandas_ta as ta
 from matplotlib import pyplot as plt, animation
 import matplotlib.dates as mdates
@@ -96,7 +95,7 @@ class Visualizer:
 
                 upper = max(self.data["upper"]) if self.data["upper"] else 1
                 lower = min(self.data["lower"]) if self.data["lower"] else 0
-                margin = (upper - lower) * 0.3
+                margin = (upper - lower) * 0.1
                 self.ax.set_ylim(lower - margin, upper + margin)
                 # self.ax.set_ylim(self.data["current"][-1] - 200, self.data["current"][-1] + 200)
 

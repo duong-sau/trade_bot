@@ -1,6 +1,5 @@
 import sys
 import os
-from PyQt5.QtWidgets import QMessageBox
 import logging
 from Tool import get_data_folder_path
 

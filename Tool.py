@@ -1,4 +1,3 @@
-import math
 import os
 import sys
 from enum import Enum
@@ -40,14 +39,23 @@ def compute_rsi(data, period=14):
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
     # Long Points (L0, L1, L2)
-    L0 = lower
-    L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
-    L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
+    L0 = current
+    L1 = current - 20
+    L2 = current - 50
 
     # Short Points (S0, S1, S2)
-    S0 = upper
-    S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
-    S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
+    S0 = current
+    S1 = current + 20
+    S2 = current + 50
+
+    # L0 = lower
+    # L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
+    # L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
+    #
+    # # Short Points (S0, S1, S2)
+    # S0 = upper
+    # S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
+    # S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
 
     return (L0, L1, L2), (S0, S1, S2)
 
@@ -79,7 +87,7 @@ def log_order(action, order, server_time):
     else:
         log_text = plain_text
 
-    log_text = f"\033[K\033[K{log_text}  |"  # Clear line before printing
+    log_text = f"\r\033[K{log_text}  |"  # Clear line before printing
 
     tqdm.write(log_text)
 
@@ -90,7 +98,7 @@ def log_order(action, order, server_time):
 
 
 def log_action(action, server_time):
-    log_text = f"\033[K\033[K\033[93m{server_time} -- {action}\033[0m"  # Yellow color with line clear
+    log_text = f"\r\033[K\033[93m{server_time} -- {action}\033[0m"  # Yellow color with line clear
     tqdm.write(log_text)
 
     # Write to CSV file in append mode
@@ -183,3 +191,59 @@ def write_alive_cmd(proc_name, cmd):
             found = True
         if not found:
             file.write(f"{proc_name}: {cmd.value}\n")
+
+def quick_compute_rsi(data, period=14):
+    if len(data) < period + 1:
+        raise ValueError("Input data length must be at least period + 1")
+
+    # Tính thay đổi giá hằng ngày
+    changes = [data[i] - data[i-1] for i in range(1, len(data))]
+
+    # Phân loại lãi (gain) và lỗ (loss)
+    gains = [x if x > 0 else 0 for x in changes]
+    losses = [-x if x < 0 else 0 for x in changes]
+
+    # Tính trung bình lãi và lỗ ban đầu
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    # Duy trì giá trị trung bình động (Smoothed Moving Average)
+    for i in range(period, len(changes)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+    # Tính RS và RSI
+    if avg_loss == 0:
+        rsi = 100  # Nếu không có lỗ, RSI = 100
+    else:
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+
+    return rsi
+
+import math
+# Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands
+def quick_compute_bb(input_data):
+    window_size = 20
+    stddev_factor = 3
+
+    # Lấy giá trị cửa sổ dữ liệu gần nhất (từ cuối mảng)
+    if len(input_data) < window_size:
+        raise ValueError("Input data length must be at least the size of the window")
+
+    window_data = input_data[-window_size:]
+
+    # Tính trung bình động (MA)
+    ma = sum(window_data) / window_size
+
+    # Tính độ lệch chuẩn (stddev)
+    variance = sum((x - ma) ** 2 for x in window_data) / window_size
+    stddev = math.sqrt(variance)
+
+    # Tính Upper, Lower và Distant
+    upper = ma + stddev_factor * stddev
+    lower = ma - stddev_factor * stddev
+    distant = upper - lower
+
+    # Trả về các giá trị cuối cùng
+    return input_data[-1], upper, lower, distant, ma

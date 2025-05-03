@@ -38,7 +38,7 @@ class Position:
         self.calulate_profit(order.trigger_price)
 
         self.volume -= order.amount
-        assert self.volume == 0
+        # assert self.volume == 0
         self.entry = 0
 
         if self.volume == 0:

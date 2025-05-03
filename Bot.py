@@ -1,8 +1,5 @@
-import multiprocessing
-import signal
 import subprocess
 from _winapi import CREATE_NEW_CONSOLE
-from subprocess import run, Popen
 import sys
 import os
 import time
@@ -11,8 +8,7 @@ import threading
 from datetime import datetime
 import Config
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QTableWidget, \
-    QTableWidgetItem, QGridLayout, QTextEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QWidget, QPushButton, QTableWidget, QTableWidgetItem, QGridLayout, QTextEdit
 from qt_material import apply_stylesheet
 from functools import partial
 

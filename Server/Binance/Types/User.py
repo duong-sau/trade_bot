@@ -10,7 +10,7 @@ tradding_fee = 0.0400 / 100
 class User:
     budget = 500
 
-    def add_profit(self, profit, server, test=False):
+    def add_profit(self, profit, server, test=True):
         if test:
             return
         self.budget = self.budget + profit

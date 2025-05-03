@@ -1,12 +1,12 @@
 import os
 import datetime
-import threading
 import time
 import traceback
 import json
 import sys
 import signal
-from numpy import ma
+
+from tqdm import tqdm
 
 import Config
 from Animation import step
@@ -14,32 +14,34 @@ from RealServer.Common import force_stop_loss
 # from RealServer.DCA import DCAServer
 from Server.DCA import DCAServer, TRADE_STEP
 from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, set_terminal_title, log_action, \
-    set_alive_counter, read_alive_cmd, ALIVE_CMD
+    set_alive_counter, read_alive_cmd, ALIVE_CMD, quick_compute_bb, quick_compute_rsi
 
 
 class TradingSystem:
     def __init__(self):
         self.dca_server = DCAServer()
         self.visualize_file = os.path.join(get_data_folder_path(), 'visualize.json')
-        self.clearVisualizeFile()
+        self.clear_visualize_file()
         signal.signal(signal.SIGINT, self.cleanup_handler)
 
         # đặt margin
-        self.dca_server.binance_server.set_leverage(Config.leverage)
+        self.dca_server.binance_server.klines_server.set_leverage(Config.leverage)
 
-        self.dca_server.binance_server.pre_check()
+        self.dca_server.binance_server.klines_server.pre_check()
 
 
-    def clearVisualizeFile(self):
+    def clear_visualize_file(self):
         with open(self.visualize_file, 'w') as f:
             json.dump({}, f)
 
     def cleanup_handler(self, signum, frame):
         print("Stopping trading system...")
-        self.clearVisualizeFile()
+        self.clear_visualize_file()
         sys.exit(0)
 
     def run(self):
+        # total = self.dca_server.binance_server.get_total()
+        # for i in tqdm(range(total)):
         while True:
             time.sleep(0.1)
             set_alive_counter('main_alive.txt')
@@ -57,13 +59,13 @@ class TradingSystem:
                 self.cleanup_handler(None, None)
             except Exception as e:
                 traceback.print_exc()
-                self.clearVisualizeFile()
+                self.clear_visualize_file()
                 exit(0)
 
     def main_run(self):
         data = self.dca_server.get_window_klines(20)
-        current, upper, lower, distant, ma = compute_bb_2(data)
-        rsi = compute_rsi(data)
+        current, upper, lower, distant, ma = quick_compute_bb(data)
+        rsi = quick_compute_rsi(data)
 
         if distant > Config.distance:  # Điều kiện khác khi distant lớn hơn 2500
             L_point, S_point = calculate_points(lower, upper, ma, data[-1])
