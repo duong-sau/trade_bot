@@ -99,6 +99,7 @@ class BinanceTestServer:
             for order in self.order_list:
                 if order.id == order_id:
                     log_order(f"CANCLD",order, self.get_current_time())
+                    self.order_list.remove(order)
             if self.klines_server.cancel_order(order_id):
                 return True
 

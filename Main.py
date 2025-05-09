@@ -13,9 +13,11 @@ from Animation import step
 from RealServer.Common import force_stop_loss
 # from RealServer.DCA import DCAServer
 from Server.DCA import DCAServer, TRADE_STEP
-from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, set_terminal_title, log_action, \
+from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, log_order, set_terminal_title, log_action, \
     set_alive_counter, read_alive_cmd, ALIVE_CMD, quick_compute_bb, quick_compute_rsi
 
+def goto(x, y):
+    print(f"\033[{y};{x}H\033[K", end='')
 
 class TradingSystem:
     def __init__(self):
@@ -43,7 +45,7 @@ class TradingSystem:
         # total = self.dca_server.binance_server.get_total()
         # for i in tqdm(range(total)):
         while True:
-            time.sleep(0.1)
+            time.sleep(0.25)
             set_alive_counter('main_alive.txt')
             try:
                 # Tiến hành các bước tick của server
@@ -120,6 +122,11 @@ class TradingSystem:
         with open(self.visualize_file, 'w') as f:
             json.dump(data_to_save, f)
 
+        # goto(120, 0)
+        # print(len(self.dca_server.binance_server.order_list))
+        # for i, order in enumerate(self.dca_server.binance_server.order_list):
+        #    goto(120,i + 1)
+        #    log_order("Debug", order, "")
 
 if __name__ == '__main__':
     set_terminal_title("Main")

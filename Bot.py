@@ -1,3 +1,4 @@
+
 import subprocess
 from _winapi import CREATE_NEW_CONSOLE
 import sys
@@ -50,7 +51,7 @@ class ProcessMonitor(QMainWindow):
         self.setGeometry(0, 0, self.h, self.w)
 
         self.data_folder =f"{time.strftime('%d_%m_%y-%H')}"
-        os.makedirs("DATA/" + self.data_folder, exist_ok=True)
+        os.makedirs(f"{Config.DATA_PATH}/" + self.data_folder, exist_ok=True)
 
         self.proc_Alive_cmd_name = ["PRICE", "WEBSOCKET", "VISUALIZER", "MAIN"]
         for cmd_name in self.proc_Alive_cmd_name:
@@ -209,7 +210,7 @@ tp2_min: {Config.tp_min* 100}%
                 status_button = self.table.cellWidget(row, 1)
                 action_button = self.table.cellWidget(row, 2)
 
-                alive_file = os.path.join("Data/" + self.data_folder, self.alive_files[row])
+                alive_file = os.path.join(f"{Config.DATA_PATH}/" + self.data_folder, self.alive_files[row])
 
                 if not os.path.exists(alive_file):
                     continue

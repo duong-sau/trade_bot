@@ -27,8 +27,13 @@ n2 = config.getfloat('BOT', 'n2')
 leverage = config.getfloat('BOT', 'leverage')
 
 
-limit_timeout = config.getint('BOT', 'limit_timeout')
-tp_timeout = config.getint('BOT', 'tp_timeout')
-tp_decrease_time = config.getint('BOT', 'tp_decrease_time')
+limit_timeout = config.getfloat('BOT', 'limit_timeout')
+tp_timeout = config.getfloat('BOT', 'tp_timeout')
+tp_decrease_time = config.getfloat('BOT', 'tp_decrease_time')
 tp_min = config.getfloat('BOT', 'tp_min') /100
 tp_decrease_step = config.getfloat('BOT', 'tp_decrease_step') / 100
+
+distance_min = config.getint('BOT', 'distance_min')
+distance_min_klines_count = config.getint('BOT', 'distance_min_klines_count')
+
+DATA_PATH = r"Z:\DATA"

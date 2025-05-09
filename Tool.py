@@ -4,7 +4,7 @@ from enum import Enum
 import pandas_ta as ta
 import pandas as pd
 from tqdm import tqdm
-from Config import bb_period, bb_stddev
+from Config import bb_period, bb_stddev, DATA_PATH
 from Server.Binance.Types.Order import ORDER_TYPE
 from datetime import datetime
 
@@ -40,13 +40,13 @@ def compute_rsi(data, period=14):
 def calculate_points(lower, upper, ma, current):
     # Long Points (L0, L1, L2)
     L0 = current
-    L1 = current - 20
-    L2 = current - 50
+    L1 = current - 100
+    L2 = current - 250
 
     # Short Points (S0, S1, S2)
     S0 = current
-    S1 = current + 20
-    S2 = current + 50
+    S1 = current + 100
+    S2 = current + 250
 
     # L0 = lower
     # L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
@@ -111,7 +111,7 @@ def log_action(action, server_time):
 
 def get_data_folder_path():
     timestamp = datetime.now().strftime("%d_%m_%y-%H")
-    folder_path = f'./DATA/{timestamp}' if len(sys.argv) < 2 else f'./DATA/{sys.argv[1]}'
+    folder_path = f'{DATA_PATH}/{timestamp}' if len(sys.argv) < 2 else f'{DATA_PATH}/{sys.argv[1]}'
     os.makedirs(folder_path, exist_ok=True)
     return folder_path
 

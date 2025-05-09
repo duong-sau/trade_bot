@@ -8,6 +8,7 @@ import sys
 
 from binance import ThreadedWebsocketManager
 
+from Config import DATA_PATH
 from RealServer import testnet
 from Tool import set_terminal_title, set_alive_counter, read_alive_cmd, ALIVE_CMD
 
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     set_terminal_title('Price')
 
     timestamp = datetime.now().strftime("%d_%m_%y-%H")
-    folder_path = f'./DATA/{timestamp}' if len(sys.argv) < 2 else f'./DATA/{sys.argv[1]}'
+    folder_path = f'{DATA_PATH}/{timestamp}' if len(sys.argv) < 2 else f'{DATA_PATH}/{sys.argv[1]}'
     os.makedirs(folder_path, exist_ok=True)
 
 
@@ -43,38 +44,47 @@ if __name__ == '__main__':
     # Hàm xử lý khi nhận được dữ liệu từ WebSocket
     message_counter = 0  # Global counter
 
+    web_socket = ThreadedWebsocketManager(
+        testnet=testnet)
 
     def on_message(message):
         global message_counter
+
         try:
-            price = message['data']['p']  # Giá giao dịch
-            time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Thời gian hiện tại
-            print(f"Time: {time}, Price: {price}")
+            if 'e' in message:
+                if message['e'] == 'error':
+                    print('socket reconnect')
+                    web_socket.stop_socket('btcusdt@aggTrade')
+                    web_socket.start_aggtrade_futures_socket(symbol="BTCUSDT", callback=on_message)
+            else:
+                price = message['data']['p']  # Giá giao dịch
+                time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Thời gian hiện tại
+                print(f"Time: {time}, Price: {price}")
 
-            # Ghi vào file CSV
-            with open(file_path, 'a', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow([time, price])
+                # Ghi vào file CSV
+                with open(file_path, 'a', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([time, price])
 
-            message_counter += 1
-            if message_counter > 20000:
-                # Read all lines
-                with open(file_path, 'r') as file:
-                    lines = file.readlines()
-                # Write back excluding first 1000 lines
-                with open(file_path, 'w') as file:
-                    file.writelines(lines[10000:])
-                message_counter -= 10000
+                message_counter += 1
+                if message_counter > 20000:
+                    # Read all lines
+                    with open(file_path, 'r') as file:
+                        lines = file.readlines()
+                    # Write back excluding first 1000 lines
+                    with open(file_path, 'w') as file:
+                        file.writelines(lines[10000:])
+                    message_counter -= 10000
         except Exception as e:
             print(f"Error: {e}")
             print(message)
 
 
-    web_socket = ThreadedWebsocketManager(
-        testnet=testnet)
+
     web_socket.start()
     print('Websocket reconnected')
     web_socket.start_aggtrade_futures_socket(symbol="BTCUSDT", callback=on_message)
+
 
     def stop():
         web_socket.stop()
