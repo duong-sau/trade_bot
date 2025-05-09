@@ -20,13 +20,13 @@ def compute_bb_2(input_data):
     df.ta.bbands(length=bb_period, std=bb_stddev, append=True)
 
     # Tính khoảng cách (distant)
-    upper =  df[f'BBU_20_{float(bb_stddev):.1f}'].tolist()[-1]
-    lower = df[f'BBL_20_{float(bb_stddev):.1f}'].tolist()[-1]
-    ma  = df[f'BBM_20_{float(bb_stddev):.1f}'].tolist()[-1]
+    upper =  df[f'BBU_20_{float(bb_stddev):.1f}']
+    lower = df[f'BBL_20_{float(bb_stddev):.1f}']
+    ma  = df[f'BBM_20_{float(bb_stddev):.1f}']
 
     distant = upper - lower
 
-    return input_data[-1], upper, lower,  distant, ma
+    return input_data, upper, lower,  distant, ma
 
 # Hàm tính RSI
 def compute_rsi(data, period=14):

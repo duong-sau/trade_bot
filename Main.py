@@ -69,7 +69,10 @@ class TradingSystem:
         current, upper, lower, distant, ma = quick_compute_bb(data)
         rsi = quick_compute_rsi(data)
 
-        if distant > Config.distance:  # Điều kiện khác khi distant lớn hơn 2500
+        data2 = self.dca_server.get_window_klines(Config.distance_min_klines_count + Config.bb_period)
+        current2, upper2, lower2, distant2, ma2 = compute_bb_2(data2)
+
+        if distant > Config.distance and (distant2.tail(Config.distance_min_klines_count) > Config.distance_min).all():  # Điều kiện khác khi distant lớn hơn 2500
             L_point, S_point = calculate_points(lower, upper, ma, data[-1])
 
             # Xử lý lệnh Long

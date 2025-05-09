@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt, animation
 import matplotlib.dates as mdates
 
 from Config import rsi_period, bb_period, bb_stddev
-from Tool import get_window_klines, compute_bb_2, compute_rsi, get_data_folder_path, set_terminal_title, \
+from Tool import get_window_klines, compute_rsi, get_data_folder_path, set_terminal_title, \
     set_alive_counter, read_alive_cmd, ALIVE_CMD
 
 

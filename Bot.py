@@ -175,6 +175,7 @@ TP1: {Config.tp1_ratio* 100}% - TP2: {Config.tp2_ratio* 100}%
 limit1_timeout: {Config.limit_timeout}
 tp2_decree: after {Config.tp_timeout}m, with {Config.tp_decrease_time}m interval decrease by {Config.tp_decrease_step * 100}%
 tp2_min: {Config.tp_min* 100}%
+dis_min: {Config.distance_min}, klines_count: {Config.distance_min_klines_count}
 """
 
         self.config_text.setText(config_text)
