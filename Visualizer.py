@@ -18,7 +18,7 @@ class Visualizer:
     MAX_COLUMNS = 60
 
     def __init__(self):
-
+        plt.rcParams['toolbar'] = 'none'
         self.ani = None
         self.data_file = get_data_folder_path() + '/visualize.json'
 
@@ -47,6 +47,7 @@ class Visualizer:
 
         self.trades = []  # List trades lấy từ server
         self.dcas = []  # List DCA orders
+        self.update_dcas = True
 
         self.text_box = self.ax.text(
             0.05, 0.95, "", transform=self.ax.transAxes, fontsize=12, va="top",
@@ -98,30 +99,32 @@ class Visualizer:
                 margin = (upper - lower) * 0.1
                 self.ax.set_ylim(lower - margin, upper + margin)
                 # self.ax.set_ylim(self.data["current"][-1] - 200, self.data["current"][-1] + 200)
+            if self.update_dcas:
+                # Clear old trade lines
+                for line in self.trade_lines:
+                    line.remove()
+                self.trade_lines.clear()
 
-            # Clear old trade lines
-            for line in self.trade_lines:
-                line.remove()
-            self.trade_lines.clear()
 
-            # Draw new trades
-            for trade in self.trades:
-                # Fill between entry and sl/tp lines 
-                x_range = [self.ax.get_xlim()[0], self.ax.get_xlim()[1]]
-                sl_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["sl"]] * 2, color='red', alpha=0.5)
-                tp_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["tp"]] * 2, color='green',
-                                               alpha=0.5)
+                # Draw new trades
+                for trade in self.trades:
+                        # Fill between entry and sl/tp lines
+                        x_range = [self.ax.get_xlim()[0], self.ax.get_xlim()[1]]
+                        sl_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["sl"]] * 2, color='red', alpha=0.5)
+                        tp_fill = self.ax.fill_between(x_range, [trade["entry"]] * 2, [trade["tp"]] * 2, color='green',
+                                                       alpha=0.5)
 
-                self.trade_lines.extend([sl_fill, tp_fill])
+                        self.trade_lines.extend([sl_fill, tp_fill])
 
-            # Vẽ DCA orders
-            for dca in self.dcas:
-                color = "green" if dca["type"] == "long" else "red"
-                dca_line = self.ax.axhline(dca["price"], color=color, linewidth=2)
-                self.trade_lines.append(dca_line)
+                # Vẽ DCA orders
+                for dca in self.dcas:
+                    color = "green" if dca["type"] == "long" else "red"
+                    dca_line = self.ax.axhline(dca["price"], color=color, linewidth=2)
+                    self.trade_lines.append(dca_line)
+                    self.update_dcas = False
 
     def start_animation(self):
-        self.ani = animation.FuncAnimation(self.fig, self._animate, interval=100)
+        self.ani = animation.FuncAnimation(self.fig, self._animate, interval=500)
         plt.show()
         self.thread.join()
 
@@ -151,11 +154,18 @@ class Visualizer:
         try:
             with open(self.data_file, 'r') as f:
                 data = json.load(f)
+
+                trades = data.get('trades', [])
+                dcas = data.get('dcas', [])
+                if trades != self.trades or dcas != self.dcas:
+                    self.update_dcas = True
+
                 self.trades = data.get('trades', [])
                 self.dcas = data.get('dcas', [])
         except FileNotFoundError:
             pass
         except json.JSONDecodeError:
+            self.update_dcas = True
             self.trades = []
             self.dcas = []
             pass
@@ -164,7 +174,7 @@ class Visualizer:
         while True:
             self.get_klines()
             self.read_trades_dcas()
-            time.sleep(0.1)
+            time.sleep(0.5)
 
             run = read_alive_cmd("VISUALIZER")
             if run == ALIVE_CMD.STOP:

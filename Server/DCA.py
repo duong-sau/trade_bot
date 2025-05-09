@@ -26,9 +26,10 @@ def create_volumes(volume, n):
 class TRADE_STEP:
     NONE = 0
     LIMIT1_FILLED = 1
-    LIMIT2_FILLED = 2
-    TP2_DECREASE = 3
-    ALL_CLOSED = 4
+    TP1_DECREASE = 2
+    LIMIT2_FILLED = 3
+    TP2_DECREASE = 4
+    ALL_CLOSED = 5
 
 
 
@@ -65,8 +66,8 @@ class DCAServer:
         self.current_tp1_ratio = 0
         self.current_tp2_ratio = 0
 
-        self.limit2_filled_time = None
-        self.tp2_putted_time = None
+        self.limit_filled_time = None
+        self.tp_putted_time = None
 
     def action_dca_open(self):
         self.log_dca_opened()
@@ -125,45 +126,65 @@ class DCAServer:
 
         self.log_dca_closed(error=False)
 
-    def get_limit2_filled_time(self):
-        if self.trade_step != TRADE_STEP.LIMIT2_FILLED:
+    def get_limit_filled_time(self):
+        if self.trade_step != TRADE_STEP.LIMIT2_FILLED and self.trade_step != TRADE_STEP.LIMIT1_FILLED:
             return None
-        return self.binance_server.get_current_time() - self.limit2_filled_time
-    def get_tp2_decrease_time(self):
+        return self.binance_server.get_current_time() - self.limit_filled_time
+    def get_tp_decrease_time(self):
         if self.trade_step != TRADE_STEP.TP2_DECREASE:
             return None
-        return self.binance_server.get_current_time() - self.tp2_putted_time
+        return self.binance_server.get_current_time() - self.tp_putted_time
 
     def decrease_tp(self):
         if self.trade_step == TRADE_STEP.LIMIT2_FILLED:
             self.trade_step = TRADE_STEP.TP2_DECREASE
-
-        self.tp2_putted_time = self.binance_server.get_current_time()
-
-        if self.current_tp2_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
-            print('error')
-            return
-        self.current_tp2_ratio = self.current_tp2_ratio - Config.tp_decrease_step / 100
+        elif self.trade_step == TRADE_STEP.LIMIT1_FILLED:
+            self.trade_step = TRADE_STEP.TP1_DECREASE
 
 
-        if self.position == POSITION_SIDE.LONG:
-            self.tp2_val = round(
-                (self.step_x_volume[0] * self.step_x_price[0] + self.step_x_volume[1] * self.step_x_price[1]) / (
+        self.tp_putted_time = self.binance_server.get_current_time()
+
+        if self.trade_step == TRADE_STEP.TP1_DECREASE:
+            if self.current_tp1_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
+                print('error')
+                return
+            self.current_tp1_ratio = self.current_tp1_ratio - Config.tp_decrease_step / 100
+            if self.position == POSITION_SIDE.LONG:
+                self.tp1_val = round((self.step_x_price[0]) * (1 + self.current_tp1_ratio), 1)
+            elif self.position == POSITION_SIDE.SHORT:
+                self.tp1_val = round((self.step_x_price[0]) * (1 - self.current_tp1_ratio), 1)
+                if not self.cancel_tp1():
+                    return
+                if not self.put_tp1():
+                    return
+        elif self.trade_step == TRADE_STEP.TP2_DECREASE:
+            if self.current_tp2_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
+                print('error')
+                return
+            self.current_tp2_ratio = self.current_tp2_ratio - Config.tp_decrease_step / 100
+
+
+            if self.position == POSITION_SIDE.LONG:
+                self.tp2_val = round(
+                    (self.step_x_volume[0] * self.step_x_price[0] + self.step_x_volume[1] * self.step_x_price[1]) / (
+                                self.step_x_volume[0] + self.step_x_volume[1]) *
+                     (1 + self.current_tp2_ratio)
+                         , 1)
+
+            elif self.position == POSITION_SIDE.SHORT:
+                self.tp2_val = round(
+                    (self.step_x_volume[0] * self.step_x_price[0] + self.step_x_volume[1] * self.step_x_price[1]) / (
                             self.step_x_volume[0] + self.step_x_volume[1]) *
-                 (1 + self.current_tp2_ratio)
-                     , 1)
+                    (1 - self.current_tp2_ratio)
+                    , 1)
 
-        elif self.position == POSITION_SIDE.SHORT:
-            self.tp2_val = round(
-                (self.step_x_volume[0] * self.step_x_price[0] + self.step_x_volume[1] * self.step_x_price[1]) / (
-                        self.step_x_volume[0] + self.step_x_volume[1]) *
-                (1 - self.current_tp2_ratio)
-                , 1)
-
-        if not self.cancel_tp2():
-            return
-        if not self.put_tp2():
-            return
+            if not self.cancel_tp2():
+                return
+            if not self.put_tp2():
+                return
+        else:
+            print('error')
+            raise Exception("error")
 
     def put_limit1(self):
         vl = self.step_x_volume[0]
@@ -283,6 +304,7 @@ class DCAServer:
         if not self.put_limit2():
             return
         self.trade_step = TRADE_STEP.LIMIT1_FILLED
+        self.limit_filled_time = self.binance_server.get_current_time()
 
     def handel_limit2_filled(self, message):
         if not self.cancel_tp1():
@@ -294,7 +316,7 @@ class DCAServer:
         if not self.put_tp2():
             return
         self.trade_step = TRADE_STEP.LIMIT2_FILLED
-        self.limit2_filled_time = self.binance_server.get_current_time()
+        self.limit_filled_time = self.binance_server.get_current_time()
 
     def handel_tp_filled(self, message):
         result = False
@@ -422,8 +444,8 @@ class DCAServer:
         self.trade_step = TRADE_STEP.NONE
 
         self.last_trade_time = None
-        self.limit2_filled_time = None
-        self.tp2_putted_time = None
+        self.limit_filled_time = None
+        self.tp_putted_time = None
 
         self.limit1 = None
         self.limit2 = None

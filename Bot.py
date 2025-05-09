@@ -7,9 +7,15 @@ import time
 import ctypes
 import threading
 from datetime import datetime
+os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "0"
+os.environ["QT_SCALE_FACTOR"] = "1"
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
+
+from PyQt6.QtCore import Qt
+
 import Config
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QWidget, QPushButton, QTableWidget, QTableWidgetItem, QGridLayout, QTextEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QWidget, QPushButton, QTableWidget, QTableWidgetItem, QGridLayout, QTextEdit
 from qt_material import apply_stylesheet
 from functools import partial
 
@@ -173,8 +179,8 @@ Distance  > {Config.distance}
 N1: {Config.n1} - N2: {Config.n2}
 TP1: {Config.tp1_ratio* 100}% - TP2: {Config.tp2_ratio* 100}%
 limit1_timeout: {Config.limit_timeout}
-tp2_decree: after {Config.tp_timeout}m, with {Config.tp_decrease_time}m interval decrease by {Config.tp_decrease_step * 100}%
-tp2_min: {Config.tp_min* 100}%
+tp_decree: after {Config.tp_timeout}m, with {Config.tp_decrease_time}m interval decrease by {Config.tp_decrease_step * 100}%
+tp_min: {Config.tp_min* 100}%
 dis_min: {Config.distance_min}, klines_count: {Config.distance_min_klines_count}
 """
 
@@ -247,9 +253,10 @@ if __name__ == "__main__":
     # if not ctypes.windll.shell32.IsUserAnAdmin():
     #     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
     #     sys.exit()
-    # if not ctypes.windll.shell32.IsUserAnAdmin():
-    #     ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, __file__, None, 1)
-    #     sys.exit()
+    # QApplication.setAttribute(Qt.ApplicationAttribute(Qt.ApplicationAttribute.AA_Use96Dpi), True)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_Use96Dpi)
+    # import ctypes
+    # ctypes.windll.shcore.SetProcessDpiAwareness(1)
     app = QApplication(sys.argv)
 
     extra = {

@@ -16,8 +16,6 @@ from Server.DCA import DCAServer, TRADE_STEP
 from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, log_order, set_terminal_title, log_action, \
     set_alive_counter, read_alive_cmd, ALIVE_CMD, quick_compute_bb, quick_compute_rsi
 
-def goto(x, y):
-    print(f"\033[{y};{x}H\033[K", end='')
 
 class TradingSystem:
     def __init__(self):
@@ -37,7 +35,7 @@ class TradingSystem:
             json.dump({}, f)
 
     def cleanup_handler(self, signum, frame):
-        print("Stopping trading system...")
+        log_action("Stopping trading system...", datetime.datetime.now())
         self.clear_visualize_file()
         sys.exit(0)
 
@@ -98,19 +96,19 @@ class TradingSystem:
                         return
 
 
-            if self.dca_server.get_trade_step() == TRADE_STEP.LIMIT2_FILLED:
-                if self.dca_server.get_limit2_filled_time() is None:
+            if self.dca_server.get_trade_step() == TRADE_STEP.LIMIT2_FILLED or self.dca_server.get_trade_step() == TRADE_STEP.LIMIT1_FILLED:
+                if self.dca_server.get_limit_filled_time() is None:
                   return
-                elif (self.dca_server.get_limit2_filled_time() > datetime.timedelta(minutes=Config.tp_timeout)
-                      and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min)/100):
-                    log_action(f"TP2 IS TIMEOUT START DECREASE TP------------------------------", self.dca_server.binance_server.get_current_time())
+                elif (self.dca_server.get_limit_filled_time() > datetime.timedelta(minutes=Config.tp_timeout)
+                      and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min) / 100):
+                    log_action(f"TP IS TIMEOUT START DECREASE TP------------------------------", self.dca_server.binance_server.get_current_time())
                     if not self.dca_server.decrease_tp():
                         return
-            elif self.dca_server.get_trade_step() == TRADE_STEP.TP2_DECREASE:
-                if self.dca_server.get_tp2_decrease_time() is None:
+            elif self.dca_server.get_trade_step() == TRADE_STEP.TP2_DECREASE or self.dca_server.get_trade_step() == TRADE_STEP.TP1_DECREASE:
+                if self.dca_server.get_tp_decrease_time() is None:
                   return
-                elif (self.dca_server.get_tp2_decrease_time() > datetime.timedelta(minutes=Config.tp_decrease_time)
-                      and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min)/100):
+                elif (self.dca_server.get_tp_decrease_time() > datetime.timedelta(minutes=Config.tp_decrease_time)
+                      and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min) / 100):
                     log_action(f"DECREASE TP TIME OUT ------------------------------", self.dca_server.binance_server.get_current_time())
                     if not self.dca_server.decrease_tp():
                         return
@@ -125,11 +123,6 @@ class TradingSystem:
         with open(self.visualize_file, 'w') as f:
             json.dump(data_to_save, f)
 
-        # goto(120, 0)
-        # print(len(self.dca_server.binance_server.order_list))
-        # for i, order in enumerate(self.dca_server.binance_server.order_list):
-        #    goto(120,i + 1)
-        #    log_order("Debug", order, "")
 
 if __name__ == '__main__':
     set_terminal_title("Main")
