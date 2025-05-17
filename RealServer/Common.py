@@ -27,7 +27,7 @@ def open_limit(symbol, side, amount, price):
 def open_take_profit(symbol,side, quantity, price):
     try:
         order = client.createOrder(symbol=symbol,
-                                   type="market",
+                                   type="limit",
                                    side="SELL" if side == "LONG" else "BUY",
                                    amount=quantity,
                                    price=price,
@@ -40,7 +40,7 @@ def open_take_profit(symbol,side, quantity, price):
 def open_stop_loss(symbol, side, quantity, price):
     try:
         order = client.createOrder(symbol=symbol,
-                                              type="market",
+                                              type="limit",
                                             side="SELL" if side == "LONG" else "BUY",
                                               amount=quantity,
                                               price=price,

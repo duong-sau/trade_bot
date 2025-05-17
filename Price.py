@@ -1,5 +1,7 @@
 import signal
 import time
+
+import portalocker
 from binance.client import Client
 import csv
 from datetime import datetime
@@ -29,18 +31,27 @@ if __name__ == '__main__':
     if os.path.exists(file_path):
         os.remove(file_path)
 
-    # Tạo file CSV và ghi tiêu đề
-    with open(file_path, 'w', newline='') as file:
-        writer = csv.writer(file)
+    def init_data_file():
+        # Tạo file CSV và ghi tiêu đề
 
-        # Lấy và ghi dữ liệu lịch sử
+        # Lấy dữ liệu lịch sử trước khi mở file
         klines = get_historical_klines()
-        for kline in klines:
-            timestamp = datetime.fromtimestamp(kline[0] / 1000).strftime("%Y-%m-%d %H:%M:%S")
-            close_price = kline[4]
-            writer.writerow([timestamp, close_price])
+
+        # Chuẩn bị dữ liệu trước khi ghi
+        data_to_write = [
+            [datetime.fromtimestamp(kline[0] / 1000).strftime("%Y-%m-%d %H:%M:%S"), kline[4]]
+            for kline in klines
+        ]
+
+        # Ghi file
+        with open(file_path, 'w', newline='') as file:
+            portalocker.lock(file, portalocker.LOCK_EX)
+            writer = csv.writer(file)
+            writer.writerows(data_to_write)  # Ghi toàn bộ dữ liệu một lần
+            portalocker.unlock(file)  # Không cần thiết vì `with` tự unlock
 
 
+    init_data_file()
     # Hàm xử lý khi nhận được dữ liệu từ WebSocket
     message_counter = 0  # Global counter
 
@@ -63,28 +74,22 @@ if __name__ == '__main__':
 
                 # Ghi vào file CSV
                 with open(file_path, 'a', newline='') as file:
+                    portalocker.lock(file, portalocker.LOCK_EX)
                     writer = csv.writer(file)
                     writer.writerow([time, price])
+                    portalocker.unlock(file)
 
                 message_counter += 1
-                if message_counter > 20000:
-                    # Read all lines
-                    with open(file_path, 'r') as file:
-                        lines = file.readlines()
-                    # Write back excluding first 1000 lines
-                    with open(file_path, 'w') as file:
-                        file.writelines(lines[10000:])
-                    message_counter -= 10000
+                if message_counter > 2000:
+                    init_data_file()
+                    message_counter = 0
         except Exception as e:
             print(f"Error: {e}")
             print(message)
 
-
-
     web_socket.start()
     print('Websocket reconnected')
     web_socket.start_aggtrade_futures_socket(symbol="BTCUSDT", callback=on_message)
-
 
     def stop():
         web_socket.stop()
@@ -93,7 +98,6 @@ if __name__ == '__main__':
     def signal_handler(sig, frame):
         print("\nProgram terminated by user (Ctrl + C)")
         stop()
-
 
     signal.signal(signal.SIGINT, signal_handler)
 

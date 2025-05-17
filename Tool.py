@@ -3,8 +3,9 @@ import sys
 from enum import Enum
 import pandas_ta as ta
 import pandas as pd
+import portalocker
 from tqdm import tqdm
-from Config import bb_period, bb_stddev, DATA_PATH
+from Config import bb_period, bb_stddev, DATA_PATH, rsi_period
 from Server.Binance.Types.Order import ORDER_TYPE
 from datetime import datetime
 
@@ -13,6 +14,10 @@ from Server.Binance.Types.Position import POSITION_SIDE
 
 # Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands
 def compute_bb_2(input_data):
+    # Lấy giá trị cửa sổ dữ liệu gần nhất (từ cuối mảng)
+    if len(input_data) < bb_period:
+        print(len(input_data))
+        raise ValueError("Input data length must be at least the size of the window")
 
     df = pd.DataFrame()
     df['close'] = input_data
@@ -34,28 +39,18 @@ def compute_rsi(data, period=14):
     df['close'] = data
     df['rsi'] = ta.rsi(df['close'], length=14)
 
-    return df['rsi'].tolist()[-1]
+    return df['rsi'].tolist()[-2]
 
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
-    # Long Points (L0, L1, L2)
-    L0 = current
-    L1 = current - 100
-    L2 = current - 250
-
+    L0 = lower
+    L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
+    L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
+#
     # Short Points (S0, S1, S2)
-    S0 = current
-    S1 = current + 100
-    S2 = current + 250
-
-    # L0 = lower
-    # L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
-    # L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
-    #
-    # # Short Points (S0, S1, S2)
-    # S0 = upper
-    # S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
-    # S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
+    S0 = upper
+    S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
+    S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
 
     return (L0, L1, L2), (S0, S1, S2)
 
@@ -120,8 +115,11 @@ kline_file_path = os.path.join(get_data_folder_path(), 'price.csv')
 def get_window_klines(param):
     global kline_file_path
     """Reads 5-minute interval close prices from CSV file."""
-    # Read CSV file with current date
-    df = pd.read_csv(kline_file_path, names=['timestamp', 'price'])
+    with open(kline_file_path, 'r') as f:
+        portalocker.lock(f, portalocker.LOCK_SH)  # Áp dụng Shared Lock
+        df = pd.read_csv(f, names=['timestamp', 'price'])  # Đọc dữ liệu vào Pandas
+        portalocker.unlock(f)  # Mở khóa sau khi đọc xong
+
     df['timestamp'] = pd.to_datetime(df['timestamp'], format='%Y-%m-%d %H:%M:%S')
 
     # Set timestamp as index and resample to 5-minute intervals
@@ -192,8 +190,9 @@ def write_alive_cmd(proc_name, cmd):
         if not found:
             file.write(f"{proc_name}: {cmd.value}\n")
 
-def quick_compute_rsi(data, period=14):
-    if len(data) < period + 1:
+def quick_compute_rsi(data):
+
+    if len(data) < rsi_period + 1:
         raise ValueError("Input data length must be at least period + 1")
 
     # Tính thay đổi giá hằng ngày
@@ -204,13 +203,13 @@ def quick_compute_rsi(data, period=14):
     losses = [-x if x < 0 else 0 for x in changes]
 
     # Tính trung bình lãi và lỗ ban đầu
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
+    avg_gain = sum(gains[:rsi_period]) / rsi_period
+    avg_loss = sum(losses[:rsi_period]) / rsi_period
 
     # Duy trì giá trị trung bình động (Smoothed Moving Average)
-    for i in range(period, len(changes)):
-        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    for i in range(rsi_period, len(changes)):
+        avg_gain = (avg_gain * (rsi_period - 1) + gains[i]) / rsi_period
+        avg_loss = (avg_loss * (rsi_period - 1) + losses[i]) / rsi_period
 
     # Tính RS và RSI
     if avg_loss == 0:
@@ -224,25 +223,24 @@ def quick_compute_rsi(data, period=14):
 import math
 # Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands
 def quick_compute_bb(input_data):
-    window_size = 20
-    stddev_factor = 3
 
     # Lấy giá trị cửa sổ dữ liệu gần nhất (từ cuối mảng)
-    if len(input_data) < window_size:
+    if len(input_data) < bb_period:
+        print(len(input_data))
         raise ValueError("Input data length must be at least the size of the window")
 
-    window_data = input_data[-window_size:]
+    window_data = input_data[-bb_period:]
 
     # Tính trung bình động (MA)
-    ma = sum(window_data) / window_size
+    ma = sum(window_data) / bb_period
 
     # Tính độ lệch chuẩn (stddev)
-    variance = sum((x - ma) ** 2 for x in window_data) / window_size
+    variance = sum((x - ma) ** 2 for x in window_data) / bb_period
     stddev = math.sqrt(variance)
 
     # Tính Upper, Lower và Distant
-    upper = ma + stddev_factor * stddev
-    lower = ma - stddev_factor * stddev
+    upper = ma + bb_stddev * stddev
+    lower = ma - bb_stddev * stddev
     distant = upper - lower
 
     # Trả về các giá trị cuối cùng

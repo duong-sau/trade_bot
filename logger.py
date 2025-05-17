@@ -2,28 +2,29 @@ import sys
 import os
 import logging
 from Tool import get_data_folder_path
-
-logging.basicConfig(
-    filename=os.path.join(r"Data", "sys_log.log"),  # File log
-    level=logging.DEBUG,        # Level log (DEBUG -> ghi mọi thứ)
-    format="%(asctime)s - %(levelname)s - %(message)s",  # Định dạng
-    datefmt="%Y-%m-%d %H:%M:%S"  # Định dạng thời gian
-)
+#
+# logging.basicConfig(
+#     filename=os.path.join(r"Data", "sys_log.log"),  # File log
+#     level=logging.DEBUG,        # Level log (DEBUG -> ghi mọi thứ)
+#     format="%(asctime)s - %(levelname)s - %(message)s",  # Định dạng
+#     datefmt="%Y-%m-%d %H:%M:%S"  # Định dạng thời gian
+# )
 
 
 def log_error():
     print_log_error(str(sys.exc_info()[1]))
 
 def print_log_error(message):
-    logging.error(message)
+    # logging.error(message)
     print(message)
-
+    pass
 def print_log_info(message):
-    logging.info(message)
-
+    # logging.info(message)
+    pass
 def print_log_warning(message):
-    logging.warning(message)
-
+    # logging.warning(message)
+    pass
 def print_log_critical(message):
-    logging.critical(message)
+    # logging.critical(message)
+    pass
 

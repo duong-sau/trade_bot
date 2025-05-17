@@ -164,7 +164,7 @@ class ProcessMonitor(QMainWindow):
             status_button.setStyleSheet("background-color: green; color: white")
             button.setText("Stop")
         else:
-            kill_process(self.proc_id[row])
+            # kill_process(self.proc_id[row])
             status_button.setText("STOPPED")
             status_button.setStyleSheet("background-color: red; color: white")
             button.setText("Start")
@@ -198,7 +198,12 @@ dis_min: {Config.distance_min}, klines_count: {Config.distance_min_klines_count}
 
     def start_all_process(self):
         for row, script in enumerate(self.scripts):
-            start_cmd(script, self.window_name[row], int(self.process_widgets[row].winId()), self.window_sizes[row], self.proc_Alive_cmd_name[row])
+            write_alive_cmd(self.proc_Alive_cmd_name[row], ALIVE_CMD.RUN)
+        subprocess.Popen(f"wt python Main.py  {self.data_folder} ; split-pane -H python Price.py  {self.data_folder} ; split-pane -V python Websocket.py  {self.data_folder}")
+        # for row, script in enumerate(self.scripts):
+        #     start_cmd(script, self.window_name[row], int(self.process_widgets[row].winId()), self.window_sizes[row], self.proc_Alive_cmd_name[row])
+        self.close()
+        QApplication.quit()
 
     def stop_all_process(self):
         for row, script in enumerate(self.scripts):
