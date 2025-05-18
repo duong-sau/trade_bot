@@ -125,6 +125,7 @@ class Visualizer:
 
     def start_animation(self):
         self.ani = animation.FuncAnimation(self.fig, self._animate, interval=500)
+        plt.show()
         self.thread.join()
 
 

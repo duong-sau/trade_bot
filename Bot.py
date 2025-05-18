@@ -117,10 +117,6 @@ class ProcessMonitor(QMainWindow):
         start_all_button.clicked.connect(self.start_all_process)
         button_layout.addWidget(start_all_button)
 
-        stop_all_button = QPushButton("Stop All")
-        stop_all_button.clicked.connect(self.stop_all_process)
-        button_layout.addWidget(stop_all_button)
-
         quit_button = QPushButton("Quit")
         quit_button.clicked.connect(self.quit)
         button_layout.addWidget(quit_button)
@@ -177,10 +173,10 @@ RSI Long  < {int(Config.rsi_long)}
 RSI Short > {int(Config.rsi_short)}
 Distance  > {Config.distance}
 N1: {Config.n1} - N2: {Config.n2}
-TP1: {Config.tp1_ratio* 100}% - TP2: {Config.tp2_ratio* 100}%
+TP1: {Config.tp1_ratio}% - TP2: {Config.tp2_ratio}%
 limit1_timeout: {Config.limit_timeout}
-tp_decree: after {Config.tp_timeout}m, with {Config.tp_decrease_time}m interval decrease by {Config.tp_decrease_step * 100}%
-tp_min: {Config.tp_min* 100}%
+tp_decree: after {Config.tp_timeout}m, with {Config.tp_decrease_time}m interval decrease by {Config.tp_decrease_step}%
+tp_min: {Config.tp_min}%
 dis_min: {Config.distance_min}, klines_count: {Config.distance_min_klines_count}
 """
 
@@ -199,18 +195,13 @@ dis_min: {Config.distance_min}, klines_count: {Config.distance_min_klines_count}
     def start_all_process(self):
         for row, script in enumerate(self.scripts):
             write_alive_cmd(self.proc_Alive_cmd_name[row], ALIVE_CMD.RUN)
-        subprocess.Popen(f"wt python Main.py  {self.data_folder} ; split-pane -H python Price.py  {self.data_folder} ; split-pane -V python Websocket.py  {self.data_folder}")
+        eval(f"{Config.start_script}")
         # for row, script in enumerate(self.scripts):
         #     start_cmd(script, self.window_name[row], int(self.process_widgets[row].winId()), self.window_sizes[row], self.proc_Alive_cmd_name[row])
-        self.close()
-        QApplication.quit()
+        self.quit()
 
-    def stop_all_process(self):
-        for row, script in enumerate(self.scripts):
-            kill_process(self.proc_Alive_cmd_name[row])
 
     def quit(self):
-        self.stop_all_process()
         self.monitoring = False
         self.close()
         QApplication.quit()
