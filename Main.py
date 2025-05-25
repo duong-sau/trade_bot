@@ -13,13 +13,15 @@ from Animation import step
 from RealServer.Common import force_stop_loss
 # from RealServer.DCA import DCAServer
 from Server.DCA import DCAServer, TRADE_STEP
-from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, log_order, set_terminal_title, log_action, \
-    set_alive_counter, read_alive_cmd, ALIVE_CMD, quick_compute_bb, quick_compute_rsi
+from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, log_order, set_terminal_title, \
+    log_action, \
+    set_alive_counter, read_alive_cmd, ALIVE_CMD, quick_compute_bb, quick_compute_rsi, init_system_log
 
 
 class TradingSystem:
     def __init__(self):
         self.dca_server = DCAServer()
+
         self.visualize_file = os.path.join(get_data_folder_path(), 'visualize.json')
         self.clear_visualize_file()
         signal.signal(signal.SIGINT, self.cleanup_handler)
@@ -133,6 +135,7 @@ class TradingSystem:
 
 
 if __name__ == '__main__':
+    init_system_log()
     set_terminal_title("Main")
     trading_system = TradingSystem()
     trading_system.run()

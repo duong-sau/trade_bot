@@ -54,6 +54,11 @@ def calculate_points(lower, upper, ma, current):
 
     return (L0, L1, L2), (S0, S1, S2)
 
+def init_system_log():
+    systemlog_path = r'C:\Bot\Log\syslog.csv'
+    with open(systemlog_path, 'w', newline='', encoding='utf-8') as csvfile:
+        csvfile.write("SYS_LOG\n")  # Write header
+
 def log_order(action, order, server_time):
     if order.side == POSITION_SIDE.LONG:
         side_text = "LONG"
@@ -87,9 +92,9 @@ def log_order(action, order, server_time):
     tqdm.write(log_text)
 
     # Write to CSV file in append mode
-    # systemlog_path = os.path.join(get_data_folder_path(), 'systemlog.csv')
-    # with open(systemlog_path, 'a', newline='') as csvfile:
-    #     csvfile.write(plain_text + '\n')
+    systemlog_path =  r'C:\Bot\Log\syslog.csv'
+    with open(systemlog_path, 'a', newline='', encoding='utf-8') as csvfile:
+        csvfile.write(plain_text + '\n')
 
 
 def log_action(action, server_time):
@@ -97,17 +102,16 @@ def log_action(action, server_time):
     tqdm.write(log_text)
 
     # Write to CSV file in append mode
-    systemlog_path = os.path.join(get_data_folder_path(), 'systemlog.csv')
-    # with open(systemlog_path, 'a', newline='') as csvfile:
-    #     # Remove ANSI color codes when writing to file
-    #     plain_text = f"{server_time} -- {action}"
-    #     csvfile.write(plain_text + '\n')
+    systemlog_path = r'C:\Bot\Log\syslog.csv'
+    with open(systemlog_path, 'a', newline='', encoding='utf-8') as csvfile:
+        # Remove ANSI color codes when writing to file
+        plain_text = f"{server_time} -- {action}"
+        csvfile.write(plain_text + '\n')
 
 
 def get_data_folder_path():
     timestamp = datetime.now().strftime("%d_%m_%y-%H")
     folder_path = f'{DATA_PATH}/{timestamp}' if len(sys.argv) < 2 else f'{DATA_PATH}/{sys.argv[1]}'
-    os.makedirs(folder_path, exist_ok=True)
     return folder_path
 
 kline_file_path = os.path.join(get_data_folder_path(), 'price.csv')
@@ -245,3 +249,18 @@ def quick_compute_bb(input_data):
 
     # Trả về các giá trị cuối cùng
     return input_data[-1], upper, lower, distant, ma
+
+
+def create_ram_disk(drive_letter, size_mb):
+    """
+    Creates a RAM disk with the specified drive letter and size in GB.
+    """
+    # check if drive is already mounted
+    if os.path.exists(f"{drive_letter}:"):
+        print(f"Drive {drive_letter}: is already mounted.")
+        return
+    import subprocess
+    command = f"powershell -Command \"Start-Process 'imdisk' -ArgumentList '-a -t vm -s {size_mb}M -m {drive_letter}: -p /fs:NTFS' -Verb RunAs\""
+    subprocess.run(command, shell=True, check=True)
+    print(f"RAM disk created at {drive_letter}: with size {size_mb}MB")
+    exit(0)  # Exit after creating the RAM disk

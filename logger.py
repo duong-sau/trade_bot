@@ -15,16 +15,11 @@ def log_error():
     print_log_error(str(sys.exc_info()[1]))
 
 def print_log_error(message):
-    # logging.error(message)
+    file_path = r"C:\Bot\log\syslog.csv"
+    with open(file_path, mode='a', encoding='utf-8') as file:
+        file.write(f"{message}\n")
     print(message)
     pass
-def print_log_info(message):
-    # logging.info(message)
-    pass
-def print_log_warning(message):
-    # logging.warning(message)
-    pass
-def print_log_critical(message):
-    # logging.critical(message)
-    pass
+
+
 

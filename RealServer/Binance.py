@@ -139,6 +139,6 @@ class BinanceServer:
             sys.exit(0)
 
         balance = self.client.fetch_balance()
-        if float(balance['info']['totalMarginBalance'])* Config.leverage / 90000 <  (Config.n1 + Config.n2):
+        if float(balance['info']['totalMarginBalance'])* Config.leverage / 100000 <  (Config.n1 + Config.n2):
             log_action("---  PLEASE ADD BALANCE USDT BEFORE START MAIN  ---", self.get_current_time())
             sys.exit(0)
