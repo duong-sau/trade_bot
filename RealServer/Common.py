@@ -8,27 +8,37 @@ def SetClient(c):
     global client
     client = c
 
+last_limit_price = 0
+
 def open_limit(symbol, side, amount, price):
+    global last_limit_price
+    last_limit_price = price
+
     try:
-        order = client.createOrder(symbol=symbol,
-                                   type="limit",
-                                   side="BUY" if side == "LONG" else "SELL",
-                                   amount=amount,
-                                   price=price
-                                )
+        order = client.createOrder(
+            symbol=symbol,
+            type="limit",
+            side="BUY" if side == "LONG" else "SELL",
+            amount=amount,
+            price=price)
+
         return order['id']
     except:
         log_error()
         return False
 
 def open_take_profit(symbol,side, quantity, price):
+    global last_limit_price
     try:
-        order = client.createOrder(symbol=symbol,
-                                   type="limit",
-                                   side="SELL" if side == "LONG" else "BUY",
-                                   amount=quantity,
-                                   price=price,
-                                   params={"takeProfitPrice": price})
+        order = client.createOrder(
+            symbol=symbol,
+            type="limit",
+            side="SELL" if side == "LONG" else "BUY",
+            amount=quantity,
+            # price=last_limit_price,
+            # params={"takeProfitPrice": price})
+            price=price)
+            # params={"takeProfitPrice": price})
         return order['id']
     except Exception as e:
         log_error()
@@ -36,12 +46,14 @@ def open_take_profit(symbol,side, quantity, price):
 
 def open_stop_loss(symbol, side, quantity, price):
     try:
-        order = client.createOrder(symbol=symbol,
-                                              type="limit",
-                                            side="SELL" if side == "LONG" else "BUY",
-                                              amount=quantity,
-                                              price=price,
-                                              params={"stopLossPrice": price})
+        order = client.createOrder(
+            symbol=symbol,
+            type="limit",
+            side="SELL" if side == "LONG" else "BUY",
+            amount=quantity,
+            price=price,
+            params={"stopLossPrice": price})
+
         return order['id']
     except Exception as e:
         log_error()
