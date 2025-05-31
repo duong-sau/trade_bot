@@ -1,17 +1,12 @@
 import os
 import sys
 from enum import Enum
-
 import numpy as np
-import pandas_ta as ta
 import pandas as pd
 import portalocker
-from tqdm import tqdm
-from Config import bb_period, bb_stddev, DATA_PATH, rsi_period
-from Server.Binance.Types.Order import ORDER_TYPE
+from Config import bb_period, bb_stddev, DATA_PATH
 from datetime import datetime
-
-from Server.Binance.Types.Position import POSITION_SIDE
+import pandas_ta as ta
 
 
 # Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands
@@ -50,25 +45,11 @@ def compute_rsi(data, period=14,  round_rsi: bool = True):
 
     rsi = np.where(up == 0, 0, np.where(down == 0, 100, 100 - (100 / (1 + up / down))))
 
-    return np.round(rsi, 2)[-1] if round_rsi else rsi[-1]
-
-# Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
-def calculate_points(lower, upper, ma, current):
-    L0 = lower
-    L1 = L0 - (ma - L0) / (0.618 - 0.5) * (0.786 - 0.618)
-    L2 = L0 - (ma - L0) / (0.618 - 0.5) * (1.5 - 0.618)
-#
-    # Short Points (S0, S1, S2)
-    S0 = upper
-    S1 = S0 + (S0 - ma) / (0.618 - 0.5) * (0.786 - 0.618)
-    S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
-
-    return (L0, L1, L2), (S0, S1, S2)
+    return np.round(rsi, 2) if round_rsi else rsi
 
 
 def get_data_folder_path():
-    timestamp = datetime.now().strftime("%d_%m_%y-%H")
-    folder_path = f'{DATA_PATH}/{timestamp}' if len(sys.argv) < 2 else f'{DATA_PATH}/{sys.argv[1]}'
+    folder_path = f'{DATA_PATH}'
     return folder_path
 
 kline_file_path = os.path.join(get_data_folder_path(), 'price.csv')

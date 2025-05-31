@@ -16,6 +16,14 @@ bb_stddev = config.getfloat('ALOG', 'bb_stddev')
 # Get distance parameter
 distance = config.getfloat('ALOG', 'distance')
 
+L0= config.get('BOT', 'L0')
+L1= config.get('BOT', 'L1')
+L2= config.get('BOT', 'L2')
+
+S0= config.get('BOT', 'S0')
+S1= config.get('BOT', 'S1')
+S2= config.get('BOT', 'S2')
+
 # Get SL and TP parameters
 tp1_ratio = config.getfloat('BOT', 'tp1')
 tp2_ratio = config.getfloat('BOT', 'tp2')

@@ -13,9 +13,21 @@ from Animation import step
 from RealServer.Common import force_stop_loss
 # from RealServer.DCA import DCAServer
 from Server.DCA import DCAServer, TRADE_STEP
-from Tool import compute_bb_2, calculate_points, compute_rsi, get_data_folder_path, set_terminal_title, \
-    set_alive_counter, read_alive_cmd, ALIVE_CMD, quick_compute_bb
+from Tool import compute_bb_2, compute_rsi, get_data_folder_path, set_terminal_title, quick_compute_bb
 from logger import log_action, init_system_log
+
+# Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
+def calculate_Long_points(lower, upper, ma, current):
+    L0 = eval(Config.L0)
+    L1 = eval(Config.L1)
+    L2 = eval
+    return (L0, L1, L2)
+
+def calculate_Short_points(lower, upper, ma, current):
+    S0 = eval(Config.S0)
+    S1 = eval(Config.S1)
+    S2 = eval(Config.S2)
+    return (S0, S1, S2)
 
 
 class TradingSystem:
@@ -49,17 +61,12 @@ class TradingSystem:
         # for i in tqdm(range(total)):
         while True:
             time.sleep(0.1)
-            set_alive_counter('main_alive.txt')
             try:
                 # Tiến hành các bước tick của server
                 self.dca_server.tick()
-
                 result = self.main_run()
                 self.visualize_run()
                 step(result)
-                run = read_alive_cmd("MAIN")
-                if run == ALIVE_CMD.STOP:
-                    exit(0)
             except KeyboardInterrupt:
                 self.cleanup_handler(None, None)
             except Exception as e:
@@ -72,7 +79,7 @@ class TradingSystem:
         if len(data) < Config.bb_period:
             return "Error: Not enough data to compute BB"
         current, upper, lower, distant, ma = quick_compute_bb(data)
-        rsi = compute_rsi(data)
+        rsi = compute_rsi(data)[-1]
 
         data2 = self.dca_server.get_window_klines(Config.distance_min_klines_count + Config.bb_period)
         if len(data2) < Config.distance_min_klines_count + Config.bb_period:
@@ -93,20 +100,19 @@ class TradingSystem:
             self.rsi_long_count = 0
             self.rsi_short_count = 0
 
-        if distant > Config.distance and (distant2.tail(Config.distance_min_klines_count) > Config.distance_min).all():  # Điều kiện khác khi distant lớn hơn 2500
-            L_point, S_point = calculate_points(lower, upper, ma, data[-1])
-
-            #
+        if distant > Config.distance and (distant2.tail(Config.distance_min_klines_count) > Config.distance_min).all():
             # Xử lý lệnh Long
-            if self.rsi_long_count >= 300:
+            if self.rsi_long_count >= 1:
                 if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Long nào được khớp
                     log_action(f"OPEN LONG -- RSI: {rsi} < LONG RSI {Config.rsi_long}  DISTANCE: {distant}", self.dca_server.binance_server.get_current_time())
+                    L_point = calculate_Long_points(lower, upper, ma, data[-1])
                     self.dca_server.put_long(L_point,  [Config.n1, Config.n2])
 
             # Xử lý lệnh Short
-            if self.rsi_short_count >= 300:
+            if self.rsi_short_count >= 1:
                 if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Short nào được khớp
                     log_action(f"OPEN SHORT -- RSI: {rsi} > SHORT RSI {Config.rsi_short}  DISTANCE: {distant}", self.dca_server.binance_server.get_current_time())
+                    S_point = calculate_Short_points(lower, upper, ma, data[-1])
                     self.dca_server.put_short(S_point,  [Config.n1, Config.n2])
 
         # Sau 5 phut
@@ -114,6 +120,7 @@ class TradingSystem:
             return f"No trade now : RSI {rsi} distance {distant} "
 
         if self.dca_server.get_trade_step() == TRADE_STEP.NONE:
+
             if self.dca_server.get_alive_time() is None:
               return f"------"
             elif self.dca_server.get_alive_time() > datetime.timedelta(minutes=Config.limit_timeout):

@@ -1,9 +1,6 @@
 import configparser
 import sys
 
-import ccxt
-from binance import ThreadedWebsocketManager
-
 import asyncio
 
 if sys.platform == 'win32':

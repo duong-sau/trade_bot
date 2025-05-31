@@ -131,7 +131,7 @@ class DCAServer:
             return None
         return self.binance_server.get_current_time() - self.limit_filled_time
     def get_tp_decrease_time(self):
-        if self.trade_step != TRADE_STEP.TP2_DECREASE:
+        if self.trade_step != TRADE_STEP.TP2_DECREASE and self.trade_step != TRADE_STEP.TP1_DECREASE:
             return None
         return self.binance_server.get_current_time() - self.tp_putted_time
 
@@ -147,20 +147,21 @@ class DCAServer:
         if self.trade_step == TRADE_STEP.TP1_DECREASE:
             if self.current_tp1_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
                 print('error')
-                return
+                return False
             self.current_tp1_ratio = self.current_tp1_ratio - Config.tp_decrease_step / 100
             if self.position == POSITION_SIDE.LONG:
                 self.tp1_val = round((self.step_x_price[0]) * (1 + self.current_tp1_ratio), 1)
             elif self.position == POSITION_SIDE.SHORT:
                 self.tp1_val = round((self.step_x_price[0]) * (1 - self.current_tp1_ratio), 1)
                 if not self.cancel_tp1():
-                    return
+                    return False
                 if not self.put_tp1():
-                    return
+                    return False
+            return True
         elif self.trade_step == TRADE_STEP.TP2_DECREASE:
             if self.current_tp2_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
                 print('error')
-                return
+                return False
             self.current_tp2_ratio = self.current_tp2_ratio - Config.tp_decrease_step / 100
 
 
@@ -179,12 +180,14 @@ class DCAServer:
                     , 1)
 
             if not self.cancel_tp2():
-                return
+                return False
             if not self.put_tp2():
-                return
+                return False
+            return True
         else:
             print('error')
             raise Exception("error")
+
 
     def put_limit1(self):
         vl = self.step_x_volume[0]
