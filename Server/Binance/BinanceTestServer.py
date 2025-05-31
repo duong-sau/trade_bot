@@ -12,7 +12,7 @@ from Server.Binance.Types.Position import Position, POSITION_SIDE
 from Server.Binance.Kline.KlineServer import KlineServer
 from Server.Binance.Types.Order import Order, ORDER_TYPE
 from Server.Binance.Types.User import User
-from Tool import log_order, log_action
+from logger import log_order, log_action
 
 
 class ORDER_ACTION(Enum):

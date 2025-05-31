@@ -1,9 +1,6 @@
 import datetime
-
 import ccxt
-from binance.exceptions import BinanceRequestException, BinanceAPIException
-
-from Tool import log_action
+from logger import log_action
 from logger import log_error
 client: ccxt.binance = None
 

@@ -3,15 +3,9 @@ import datetime
 import threading
 from enum import Enum
 from queue import Queue
-
-from tqdm import tqdm
-
-from RealServer.Binance import BinanceServer
-from Server.Binance.Types.Position import Position, POSITION_SIDE
 from Server.Binance.Kline.KlineServer import KlineServer
 from Server.Binance.Types.Order import Order, ORDER_TYPE
-from Server.Binance.Types.User import User
-from Tool import log_order
+from logger import log_order
 
 
 class TestServer:

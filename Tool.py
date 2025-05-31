@@ -1,6 +1,8 @@
 import os
 import sys
 from enum import Enum
+
+import numpy as np
 import pandas_ta as ta
 import pandas as pd
 import portalocker
@@ -33,13 +35,22 @@ def compute_bb_2(input_data):
 
     return input_data, upper, lower,  distant, ma
 
-# Hàm tính RSI
-def compute_rsi(data, period=14):
-    df = pd.DataFrame()
-    df['close'] = data
-    df['rsi'] = ta.rsi(df['close'], length=14)
+def compute_rsi(data, period=14,  round_rsi: bool = True):
+    df = pd.DataFrame(data, columns=['close'])
+    delta = df["close"].diff()
 
-    return df['rsi'].tolist()[-2]
+    up = delta.copy()
+    up[up < 0] = 0
+    up = pd.Series.ewm(up, alpha=1/period).mean()
+
+    down = delta.copy()
+    down[down > 0] = 0
+    down *= -1
+    down = pd.Series.ewm(down, alpha=1/period).mean()
+
+    rsi = np.where(up == 0, 0, np.where(down == 0, 100, 100 - (100 / (1 + up / down))))
+
+    return np.round(rsi, 2)[-1] if round_rsi else rsi[-1]
 
 # Hàm tính toán các điểm Long (L0, L1, L2) và Short (S0, S1, S2)
 def calculate_points(lower, upper, ma, current):
@@ -53,60 +64,6 @@ def calculate_points(lower, upper, ma, current):
     S2 = S0 + (S0 - ma) / (0.618 - 0.5) * (1.5 - 0.618)
 
     return (L0, L1, L2), (S0, S1, S2)
-
-def init_system_log():
-    systemlog_path = r'C:\Bot\Log\syslog.csv'
-    with open(systemlog_path, 'w', newline='', encoding='utf-8') as csvfile:
-        csvfile.write("SYS_LOG\n")  # Write header
-
-def log_order(action, order, server_time):
-    if order.side == POSITION_SIDE.LONG:
-        side_text = "LONG"
-    else:
-        side_text = "SHORT"
-
-    if order.type == ORDER_TYPE.LIMIT:
-        order_text = "LIMIT"
-    elif order.type == ORDER_TYPE.TP:
-        order_text = "___TP"
-    elif order.type == ORDER_TYPE.SL:
-        order_text = "___SL"
-    else:
-        assert False
-
-    # Move cursor up one line and clear it before printing
-    plain_text = f"{server_time} -- {action} -- {side_text} -- {order_text} -- {order.amount:.4f} -- {order.trigger_price:.2f} -- id: {str(order.id)[:10]}"
-
-    if action == "FILLED":
-        if order.type == ORDER_TYPE.LIMIT:
-            log_text = f"\033[93m{plain_text}\033[0m"  # Yellow
-        elif order.type == ORDER_TYPE.TP:
-            log_text = f"\033[92m{plain_text}\033[0m"  # Green
-        elif order.type == ORDER_TYPE.SL:
-            log_text = f"\033[91m{plain_text}\033[0m"  # Red
-    else:
-        log_text = plain_text
-
-    log_text = f"\r\033[K{log_text}  |"  # Clear line before printing
-
-    tqdm.write(log_text)
-
-    # Write to CSV file in append mode
-    systemlog_path =  r'C:\Bot\Log\syslog.csv'
-    with open(systemlog_path, 'a', newline='', encoding='utf-8') as csvfile:
-        csvfile.write(plain_text + '\n')
-
-
-def log_action(action, server_time):
-    log_text = f"\r\033[K\033[93m{server_time} -- {action}\033[0m"  # Yellow color with line clear
-    tqdm.write(log_text)
-
-    # Write to CSV file in append mode
-    systemlog_path = r'C:\Bot\Log\syslog.csv'
-    with open(systemlog_path, 'a', newline='', encoding='utf-8') as csvfile:
-        # Remove ANSI color codes when writing to file
-        plain_text = f"{server_time} -- {action}"
-        csvfile.write(plain_text + '\n')
 
 
 def get_data_folder_path():
@@ -193,36 +150,6 @@ def write_alive_cmd(proc_name, cmd):
             found = True
         if not found:
             file.write(f"{proc_name}: {cmd.value}\n")
-
-def quick_compute_rsi(data):
-
-    if len(data) < rsi_period + 1:
-        raise ValueError("Input data length must be at least period + 1")
-
-    # Tính thay đổi giá hằng ngày
-    changes = [data[i] - data[i-1] for i in range(1, len(data))]
-
-    # Phân loại lãi (gain) và lỗ (loss)
-    gains = [x if x > 0 else 0 for x in changes]
-    losses = [-x if x < 0 else 0 for x in changes]
-
-    # Tính trung bình lãi và lỗ ban đầu
-    avg_gain = sum(gains[:rsi_period]) / rsi_period
-    avg_loss = sum(losses[:rsi_period]) / rsi_period
-
-    # Duy trì giá trị trung bình động (Smoothed Moving Average)
-    for i in range(rsi_period, len(changes)):
-        avg_gain = (avg_gain * (rsi_period - 1) + gains[i]) / rsi_period
-        avg_loss = (avg_loss * (rsi_period - 1) + losses[i]) / rsi_period
-
-    # Tính RS và RSI
-    if avg_loss == 0:
-        rsi = 100  # Nếu không có lỗ, RSI = 100
-    else:
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
-
-    return rsi
 
 import math
 # Hàm tính toán Bollinger Bands và khoảng cách giữa upper và lower bands

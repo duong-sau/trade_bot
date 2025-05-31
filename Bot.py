@@ -52,8 +52,8 @@ class ProcessMonitor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Process Monitor")
-        self.h = 1080
-        self.w = 1920
+        self.h = 860
+        self.w = 640
         self.setGeometry(0, 0, self.h, self.w)
 
         self.data_folder =f"{time.strftime('%d_%m_%y-%H')}"
@@ -69,9 +69,7 @@ class ProcessMonitor(QMainWindow):
         self.alive_time = [datetime.now()] * len(self.alive_files)
         self.script_names = ["Price", "Websocket", "Visualizer", "Main"]
         self.window_name = ['Price', 'Websocket', "Figure 1", 'Main']
-        self.row_column_spans = [(2, 2, 1, 1), (1, 2, 1, 1), (1, 0, 2, 2), (0, 1, 1, 2)]
-        unit_tp = (int(self.w/3), int(self.h/3))
-        self.window_sizes = [unit_tp, unit_tp, (int(self.w/3*2), int(self.h/3*2)), (int(self.w/3*2), int(self.h/3))]
+        unit_tp = (int(self.w), int(self.h))
         self.process_widgets = []
 
         self.central_widget = QWidget()
@@ -95,7 +93,7 @@ class ProcessMonitor(QMainWindow):
 
         self.config_text = QTextEdit()
         self.config_text.setReadOnly(True)
-        self.config_text.setFixedSize(300, 250)
+        self.config_text.setFixedSize(300, 400)
         self.update_config_display()
         tb_config_layout.addWidget(self.config_text)
 
@@ -114,14 +112,6 @@ class ProcessMonitor(QMainWindow):
         quit_button = QPushButton("Quit")
         quit_button.clicked.connect(self.quit)
         button_layout.addWidget(quit_button)
-
-        for i, script in enumerate(self.script_names):
-            widget = QWidget()
-            self.process_widgets.append(widget)
-            r, c, rs, cs = self.row_column_spans[i]
-            main_layout.addWidget(widget, r, c, rs, cs)
-            widget.setFixedSize(self.window_sizes[i][0], self.window_sizes[i][1])
-
         self.init_table()
 
     def init_table(self):
@@ -195,6 +185,5 @@ if __name__ == "__main__":
     }
     apply_stylesheet(app, theme='dark_yellow.xml', extra=extra)
     window = ProcessMonitor()
-    window.showFullScreen()
     window.show()
     app.exec()

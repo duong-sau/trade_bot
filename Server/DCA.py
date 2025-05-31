@@ -5,7 +5,7 @@ from RealServer.Binance import BinanceServer
 from Server.Binance.BinanceTestServer import BinanceTestServer, ORDER_ACTION
 from Server.Binance.Types.Order import ORDER_TYPE
 from Server.Binance.Types.Position import POSITION_SIDE
-from Tool import log_action, log_order
+from logger import log_action, log_order
 
 
 class DCA:
