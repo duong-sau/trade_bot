@@ -1,4 +1,5 @@
 import datetime
+import importlib
 
 import Config
 from RealServer.Binance import BinanceServer
@@ -35,10 +36,13 @@ class TRADE_STEP:
 
 class DCAServer:
 
-    tp1_ratio = Config.tp1_ratio / 100
-    tp2_ratio = Config.tp2_ratio / 100
-
     def __init__(self):
+        importlib.reload(Config)
+
+        self.tp1_ratio = Config.tp1_ratio / 100
+        self.tp2_ratio = Config.tp2_ratio / 100
+
+
         self.binance_server = BinanceTestServer(test=False)
         self.position = POSITION_SIDE.NONE
         self.name = ""
@@ -145,8 +149,8 @@ class DCAServer:
         self.tp_putted_time = self.binance_server.get_current_time()
 
         if self.trade_step == TRADE_STEP.TP1_DECREASE:
-            if self.current_tp1_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
-                print('error')
+            if self.current_tp1_ratio - Config.tp_decrease_step / 100 < Config.tp_min / 100:
+                print(f'error {self.current_tp1_ratio} - {Config.tp_decrease_step / 100} < {Config.tp_min / 100}')
                 return False
             self.current_tp1_ratio = self.current_tp1_ratio - Config.tp_decrease_step / 100
 
@@ -165,8 +169,8 @@ class DCAServer:
 
         # tp2 step
         elif self.trade_step == TRADE_STEP.TP2_DECREASE:
-            if self.current_tp2_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
-                print('error')
+            if self.current_tp2_ratio - Config.tp_decrease_step / 100 < Config.tp_min / 100:
+                print(f'error {self.current_tp2_ratio} - {Config.tp_decrease_step / 100} < {Config.tp_min / 100}')
                 return False
             self.current_tp2_ratio = self.current_tp2_ratio - Config.tp_decrease_step / 100
 

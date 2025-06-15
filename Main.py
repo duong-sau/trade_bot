@@ -43,6 +43,8 @@ class TradingSystem:
 
         self.dca_server.binance_server.klines_server.pre_check()
 
+        time.sleep(10)
+
         self.rsi_long_count = 0
         self.rsi_short_count = 0
 
