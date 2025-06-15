@@ -4,6 +4,8 @@ import configparser
 config = configparser.ConfigParser()
 config.read('Ini/Algorithm.ini')
 
+mode = config.get('MODE', 'current')
+
 # Get RSI parameters
 rsi_long = config.getfloat('ALOG', 'rsi_long')
 rsi_short = config.getfloat('ALOG', 'rsi_short')
@@ -14,7 +16,7 @@ bb_period = config.getint('ALOG', 'bb_period')
 bb_stddev = config.getfloat('ALOG', 'bb_stddev')
 
 # Get distance parameter
-distance = config.getfloat('ALOG', 'distance')
+distance = config.get('ALOG', 'distance')
 
 L0= config.get('BOT', 'L0')
 L1= config.get('BOT', 'L1')
@@ -44,8 +46,12 @@ tp_decrease_step = config.getfloat('BOT', 'tp_decrease_step')
 distance_min = config.getint('BOT', 'distance_min')
 distance_min_klines_count = config.getint('BOT', 'distance_min_klines_count')
 
+distance_check_mode = config.getint('BOT', 'distance_check_mode')
+distance_check_mode_klines_count = config.getint('BOT', 'distance_check_mode_klines_count')
+
 DATA_PATH = r"Z:\DATA"
 
 config = configparser.ConfigParser()
 config.read('Ini/Config.ini')
 start_script = config.get('SCRIPT', 'start')
+

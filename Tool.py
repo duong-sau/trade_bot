@@ -54,7 +54,7 @@ def get_data_folder_path():
 
 kline_file_path = os.path.join(get_data_folder_path(), 'price.csv')
 
-def get_window_klines(param):
+def get_window_klines(param, interval):
     global kline_file_path
     """Reads 5-minute interval close prices from CSV file."""
     with open(kline_file_path, 'r') as f:
@@ -66,7 +66,7 @@ def get_window_klines(param):
 
     # Set timestamp as index and resample to 5-minute intervals
     df.set_index('timestamp', inplace=True)
-    df_5min = df.resample('5min').last()
+    df_5min = df.resample(interval).last()
 
     # Get last param (or 20 if param is None) prices
     limit = param if param else 20

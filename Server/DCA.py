@@ -149,15 +149,21 @@ class DCAServer:
                 print('error')
                 return False
             self.current_tp1_ratio = self.current_tp1_ratio - Config.tp_decrease_step / 100
+
+            # change tp1 value
             if self.position == POSITION_SIDE.LONG:
                 self.tp1_val = round((self.step_x_price[0]) * (1 + self.current_tp1_ratio), 1)
             elif self.position == POSITION_SIDE.SHORT:
                 self.tp1_val = round((self.step_x_price[0]) * (1 - self.current_tp1_ratio), 1)
-                if not self.cancel_tp1():
-                    return False
-                if not self.put_tp1():
-                    return False
+
+            # cancel old tp1 and put new one
+            if not self.cancel_tp1():
+                return False
+            if not self.put_tp1():
+                return False
             return True
+
+        # tp2 step
         elif self.trade_step == TRADE_STEP.TP2_DECREASE:
             if self.current_tp2_ratio - Config.tp_decrease_step / 100 <= Config.tp_min / 100:
                 print('error')
@@ -179,10 +185,12 @@ class DCAServer:
                     (1 - self.current_tp2_ratio)
                     , 1)
 
+            # cancel old tp2 and put new one
             if not self.cancel_tp2():
                 return False
             if not self.put_tp2():
                 return False
+
             return True
         else:
             print('error')
@@ -433,8 +441,8 @@ class DCAServer:
     def get_total(self):
         return self.binance_server.get_total()
 
-    def get_window_klines(self, limit):
-        return self.binance_server.get_window_klines(limit)
+    def get_window_klines(self, limit, interval):
+        return self.binance_server.get_window_klines(limit, interval)
 
     def log_dca_closed(self, error=True):
         log_action(f"↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑DCAS CLOSED - {"NG" if error else "OK"}↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑\n", self.binance_server.get_current_time())

@@ -74,9 +74,9 @@ class BinanceServer:
         return cancel_order(self.symbol, order_id)
 
     
-    def get_window_klines(self, param):
+    def get_window_klines(self, param, interval):
         try:
-            prices, _ = get_window_klines(param)
+            prices, _ = get_window_klines(param, interval)
             self.current_price = prices[-1]
             return prices
         except:
@@ -141,3 +141,6 @@ class BinanceServer:
         if float(balance['info']['totalMarginBalance'])* Config.leverage / 100000 <  (Config.n1 + Config.n2):
             log_action("---  PLEASE ADD BALANCE USDT BEFORE START MAIN  ---", self.get_current_time())
             sys.exit(0)
+
+    def stop_all(self):
+        force_stop_loss(self.symbol, False)

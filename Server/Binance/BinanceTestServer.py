@@ -115,8 +115,8 @@ class BinanceTestServer:
     def get_current_time(self):
         return self.klines_server.get_current_time()
 
-    def get_window_klines(self, limit):
-        return self.klines_server.get_window_klines(limit)
+    def get_window_klines(self, limit, interval):
+        return self.klines_server.get_window_klines(limit, interval)
 
     def get_budget(self):
         return self.user.budget

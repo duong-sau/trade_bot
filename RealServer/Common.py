@@ -1,4 +1,6 @@
 import datetime
+import sys
+
 import ccxt
 from logger import log_action
 from logger import log_error
@@ -21,7 +23,6 @@ def open_limit(symbol, side, amount, price):
             side="BUY" if side == "LONG" else "SELL",
             amount=amount,
             price=price)
-
         return order['id']
     except:
         log_error()
@@ -34,11 +35,11 @@ def open_take_profit(symbol,side, quantity, price):
             symbol=symbol,
             type="limit",
             side="SELL" if side == "LONG" else "BUY",
+
             amount=quantity,
             # price=last_limit_price,
             # params={"takeProfitPrice": price})
             price=price)
-            # params={"takeProfitPrice": price})
         return order['id']
     except Exception as e:
         log_error()
@@ -59,7 +60,7 @@ def open_stop_loss(symbol, side, quantity, price):
         log_error()
         return False
 
-def force_stop_loss(symbol):
+def force_stop_loss(symbol, stop = True):
     log_action("-------------- ERROR FORCE STOP LOSS ------------------------", datetime.datetime.now())
     try:
 
@@ -68,7 +69,8 @@ def force_stop_loss(symbol):
 
         positions = client.fetch_positions()
         if len(positions) == 0:
-            return False
+            if stop:
+                sys.exit(1)
 
         # print(positions)
 
@@ -81,11 +83,14 @@ def force_stop_loss(symbol):
                                    amount=amount if side == "long" else -amount,
                                    )
         # print(order)
-        return True
+        if stop:
+            sys.exit(1)
+
     except Exception as e:
         print(e)
         log_error()
-        return False
+        if stop:
+            sys.exit(1)
 
 
 def cancel_order(symbol, order_id):

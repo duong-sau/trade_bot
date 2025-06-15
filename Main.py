@@ -1,5 +1,7 @@
+import importlib
 import os
 import datetime
+import shutil
 import time
 import traceback
 import json
@@ -44,6 +46,8 @@ class TradingSystem:
         self.rsi_long_count = 0
         self.rsi_short_count = 0
 
+        self.mode = '5min'
+
 
     def clear_visualize_file(self):
         with open(self.visualize_file, 'w') as f:
@@ -61,10 +65,11 @@ class TradingSystem:
             time.sleep(0.1)
             try:
                 # Tiến hành các bước tick của server
+                self.check_mode()
                 self.dca_server.tick()
                 result = self.main_run()
                 self.visualize_run()
-                step(result)
+                step(result + f" -- MODE: {self.mode}")
             except KeyboardInterrupt:
                 self.cleanup_handler(None, None)
             except Exception as e:
@@ -73,7 +78,7 @@ class TradingSystem:
                 exit(0)
 
     def main_run(self):
-        data = self.dca_server.get_window_klines(120)
+        data = self.dca_server.get_window_klines(max(Config.rsi_period, Config.bb_period) + 1, self.mode)
         if len(data) < Config.bb_period:
             return "Error: Not enough data to compute BB"
         current, upper, lower, distant, ma = quick_compute_bb(data)
@@ -81,7 +86,7 @@ class TradingSystem:
         pre_rsi = rsi[-2]
         rsi = rsi[-1]
 
-        data2 = self.dca_server.get_window_klines(Config.distance_min_klines_count + Config.bb_period)
+        data2 = self.dca_server.get_window_klines(Config.distance_min_klines_count + Config.bb_period, self.mode)
         if len(data2) < Config.distance_min_klines_count + Config.bb_period:
             return "Error: Not enough data to compute BB"
         current2, upper2, lower2, distant2, ma2 = compute_bb_2(data2)
@@ -100,7 +105,7 @@ class TradingSystem:
             self.rsi_long_count = 0
             self.rsi_short_count = 0
 
-        if distant > Config.distance and (distant2.tail(Config.distance_min_klines_count) > Config.distance_min).all():
+        if eval(Config.distance) and (distant2.tail(Config.distance_min_klines_count) > Config.distance_min).all():
             # Xử lý lệnh Long
             if self.rsi_long_count >= 300:
                 if self.dca_server.get_dac_num() == 0:  # Chưa có lệnh Long nào được khớp
@@ -134,24 +139,56 @@ class TradingSystem:
                     log_action(f"CANCEL SHORT BY NOT SATISFY RSI  -- RSI: {pre_rsi} < SHORT RSI {Config.rsi_short}", self.dca_server.binance_server.get_current_time())
                     self.dca_server.cancel_by_timeout()
 
+            else:
+                return f"WAITING -- ALIVE TIME: {self.dca_server.get_alive_time()} < LIMIT TIME OUT {Config.limit_timeout}"
 
-        if self.dca_server.get_trade_step() == TRADE_STEP.LIMIT2_FILLED or self.dca_server.get_trade_step() == TRADE_STEP.LIMIT1_FILLED:
+
+        if self.dca_server.get_trade_step() == TRADE_STEP.LIMIT2_FILLED :
             if self.dca_server.get_limit_filled_time() is None:
               return f"------"
-            elif (self.dca_server.get_limit_filled_time() > datetime.timedelta(minutes=Config.tp_timeout)
-                  and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min) / 100):
-                log_action(f"TP IS TIMEOUT START DECREASE TP------------------------------", self.dca_server.binance_server.get_current_time())
+            if self.dca_server.current_tp2_ratio < (Config.tp_decrease_step + Config.tp_min) / 100:
+                return f"MIN TP2 RATIO BE REACHED -- TP2: {self.dca_server.current_tp2_ratio * 100} - DECREASE {Config.tp_decrease_step} < MIN TP2 RATIO {Config.tp_min }"
+            elif self.dca_server.get_limit_filled_time() > datetime.timedelta(minutes=Config.tp_timeout) :
+                log_action(f"TP2 IS TIMEOUT START DECREASE TP------------------------------", self.dca_server.binance_server.get_current_time())
                 if not self.dca_server.decrease_tp():
                     return f"------"
-        elif self.dca_server.get_trade_step() == TRADE_STEP.TP2_DECREASE or self.dca_server.get_trade_step() == TRADE_STEP.TP1_DECREASE:
+            else:
+                return f"LIMIT2 FILLED -- TP2: {self.dca_server.current_tp2_ratio * 100} -- FILLED TIME: {self.dca_server.get_limit_filled_time()} < LIMIT TIME OUT {Config.tp_timeout}"
+
+        elif self.dca_server.get_trade_step() == TRADE_STEP.LIMIT1_FILLED:
+            if self.dca_server.get_limit_filled_time() is None:
+                return f"------"
+            if self.dca_server.current_tp1_ratio < (Config.tp_decrease_step + Config.tp_min) / 100:
+                return f"MIN TP1 RATIO BE REACHED -- TP1: {self.dca_server.current_tp1_ratio * 100} - DECREASE {Config.tp_decrease_step} < MIN TP1 RATIO {Config.tp_min }"
+            elif self.dca_server.get_limit_filled_time() > datetime.timedelta(minutes=Config.tp_timeout):
+                log_action(f"TP1 IS TIMEOUT START DECREASE TP------------------------------", self.dca_server.binance_server.get_current_time())
+                if not self.dca_server.decrease_tp():
+                    return f"------"
+            else:
+                return f"LIMIT1 FILLED -- TP1: {self.dca_server.current_tp1_ratio * 100} -- FILLED TIME: {self.dca_server.get_limit_filled_time()} < LIMIT TIME OUT {Config.tp_timeout}"
+
+        elif self.dca_server.get_trade_step() == TRADE_STEP.TP2_DECREASE:
             if self.dca_server.get_tp_decrease_time() is None:
                 return f"------"
-            elif (self.dca_server.get_tp_decrease_time() > datetime.timedelta(minutes=Config.tp_decrease_time)
-                  and self.dca_server.current_tp2_ratio >= (Config.tp_decrease_step + Config.tp_min) / 100):
+            elif self.dca_server.current_tp2_ratio < (Config.tp_decrease_step + Config.tp_min) / 100:
+                return f"MIN TP2 RATIO BE REACHED -- TP2: {self.dca_server.current_tp2_ratio * 100} - DECREASE {Config.tp_decrease_step} < MIN TP2 RATIO {Config.tp_min }"
+            elif self.dca_server.get_tp_decrease_time() > datetime.timedelta(minutes=Config.tp_decrease_time):
                 log_action(f"DECREASE TP TIME OUT ------------------------------", self.dca_server.binance_server.get_current_time())
                 if not self.dca_server.decrease_tp():
                     return f"------"
-
+            else:
+                return f"TP2 DECREASE -- TP2: {self.dca_server.current_tp2_ratio * 100} -- DECREASE TIME: {self.dca_server.get_tp_decrease_time()} < DECREASE TIME {Config.tp_decrease_time}"
+        elif  self.dca_server.get_trade_step() == TRADE_STEP.TP1_DECREASE:
+            if self.dca_server.get_tp_decrease_time() is None:
+                return f"------"
+            elif self.dca_server.current_tp1_ratio < (Config.tp_decrease_step + Config.tp_min) / 100:
+                return f"MIN TP1 RATIO BE REACHED -- TP1: {self.dca_server.current_tp1_ratio * 100} - DECREASE {Config.tp_decrease_step} < MIN TP1 RATIO {Config.tp_min }"
+            elif self.dca_server.get_tp_decrease_time() > datetime.timedelta(minutes=Config.tp_decrease_time):
+                log_action(f"DECREASE TP TIME OUT ------------------------------", self.dca_server.binance_server.get_current_time())
+                if not self.dca_server.decrease_tp():
+                    return f"------"
+            else:
+                return f"TP1 DECREASE -- TP1: {self.dca_server.current_tp1_ratio * 100} -- DECREASE TIME: {self.dca_server.get_tp_decrease_time()} < DECREASE TIME {Config.tp_decrease_time}"
         return f"RSI {rsi} distance {distant} "
 
     def visualize_run(self):
@@ -164,9 +201,38 @@ class TradingSystem:
         with open(self.visualize_file, 'w') as f:
             json.dump(data_to_save, f)
 
+    def check_mode(self):
+        data2 = self.dca_server.get_window_klines(Config.distance_check_mode_klines_count + Config.bb_period + 1, '5min')
+        data2 = data2[:-1]  # không lấy giá trị nến chưa đóng
+
+        if len(data2) < Config.distance_check_mode_klines_count + Config.bb_period:
+            return "Error: Not enough data to compute BB"
+        _, _, _, distance_check_mode, _ = compute_bb_2(data2)
+
+        if (distance_check_mode.tail(Config.distance_check_mode_klines_count) < Config.distance_check_mode).all():
+            if self.mode != '30min':
+                log_action(f"CHANGE TO 30 MINUTE MODE", self.dca_server.binance_server.get_current_time())
+                self.mode = '30min'
+                self.dca_server.binance_server.klines_server.stop_all()
+                shutil.copy(r"Ini\Algorithm_30m.ini" , r"Ini\Algorithm.ini")
+                importlib.reload(Config)
+                self.dca_server = DCAServer() # Tạo lại DCAServer để áp dụng cấu hình mới
+        else:
+            if self.mode != '5min':
+                log_action(f"CHANGE TO 5 MINUTE MODE", self.dca_server.binance_server.get_current_time())
+                self.mode = '5min'
+                self.dca_server.binance_server.klines_server.stop_all()
+                shutil.copy(r"Ini\Algorithm_5m.ini" , r"Ini\Algorithm.ini")
+                importlib.reload(Config)
+                self.dca_server = DCAServer() # Tạo lại DCAServer để áp dụng cấu hình mới
+        return self.mode
+
 
 if __name__ == '__main__':
     init_system_log()
     set_terminal_title("Main")
+    log_action("START WITH 5 MINUTE MODE", datetime.datetime.now())
+    shutil.copy(r'Ini\Algorithm_5m.ini', r'Ini\Algorithm.ini')
+    importlib.reload(Config)
     trading_system = TradingSystem()
     trading_system.run()
